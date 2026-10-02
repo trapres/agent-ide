@@ -1,4 +1,4 @@
-"""Three-pane Phase 0 harness, with event cards rather than a full review IDE."""
+"""Three-pane native terminal and recording event cards."""
 import curses
 import json
 import os
@@ -32,7 +32,7 @@ def clip(text, width):
 
 class Harness:
     def __init__(self, command, workspace, events, side="left", agent_fraction=.5, activity_fraction=.5,
-                 watch=False, watch_backend="native"):
+                 watch=False, watch_backend="native", recording=None):
         self.command, self.workspace, self.events = command, workspace, Path(events)
         self.side = side
         self.agent_fraction, self.activity_fraction = agent_fraction, activity_fraction
@@ -47,6 +47,8 @@ class Harness:
         self.child = None
         self.watch_enabled, self.watch_backend = watch, watch_backend
         self.watcher = None
+        self.recording = recording
+        self.recorder = None
         self.pairs = {}
         self.notice = "pyte terminal | provider coverage unverified"
         self.running = True
@@ -58,7 +60,7 @@ class Harness:
 
     def collect(self):
         fresh = []
-        for file in self.events.glob("*.json"):
+        for file in ([] if self.recorder else self.events.glob("*.json")):
             if file.name in self.seen:
                 continue
             self.seen.add(file.name)
@@ -69,6 +71,9 @@ class Harness:
                 fresh.append(record)
             except (ValueError, OSError):
                 self.notice = "Unreadable hook event; coverage incomplete"
+        if self.recorder:
+            fresh.extend(self.recorder.drain())
+            self.notice = self.recorder.notice
         if self.watcher:
             fresh.extend(self.watcher.drain())
             if self.watcher.dropped:
@@ -170,7 +175,7 @@ class Harness:
     def paint(self, screen, geometry):
         screen.erase()
         rows, columns = screen.getmaxyx()
-        self.add(screen, 0, 0, "Labradour phase 0 | %s | focus: %s | %s" % (
+        self.add(screen, 0, 0, "Labradour | %s | focus: %s | %s" % (
             Path(self.workspace).name, self.focus,
             "LIVE" if self.follow else "historical selection"), curses.A_BOLD)
         for name, rect in geometry.items():
@@ -190,7 +195,7 @@ class Harness:
                 for index, action in enumerate(self.actions[start:start + h], start):
                     p = action["payload"]
                     state = {"PreToolUse": "running", "PostToolUse": "completed",
-                             "PostToolUseFailure": "failed"}.get(p.get("hook_event_name"), p.get("hook_event_name", "event"))
+                             "PostToolUseFailure": "failed"}.get(p.get("hook_event_name"), p.get("hook_event_name", action.get("kind", "event")))
                     label = "%s %s %s" % (p.get("actor", "main/unknown"),
                                             p.get("tool_name", p.get("operation", "session")), state)
                     self.add(window, index - start + 1, 1, label,
@@ -201,7 +206,7 @@ class Harness:
                 p = self.actions[self.selected]["payload"]
                 lines = ["View: " + p.get("operation", "tool/event card"),
                          "Evidence: " + ("watcher observation; no content snapshot" if
-                                          p.get("quality") == "watcher-observed" else "hook payload (Phase 0)")]
+                                          p.get("quality") == "watcher-observed" else "durable checkpoint/event" if self.recorder else "hook payload (Phase 0)")]
                 lines += json.dumps(p, ensure_ascii=False, indent=2).splitlines()
                 for y, line in enumerate(lines[self.scroll:self.scroll + h]):
                     self.add(window, y + 1, 1, line)
@@ -241,14 +246,20 @@ class Harness:
         h, w = geometry.get("agent", next(iter(geometry.values()), Rect(0, 0, 26, 82))).content_size
         self.terminal = Terminal(h, w)
         child_env = dict(os.environ, LABRADOUR_EVENTS_DIR=str(self.events.resolve()))
-        self.child = PtyProcess(self.command, self.workspace, h, w, child_env)
+        self.child = PtyProcess(self.command, self.workspace, h, w, child_env, paused=bool(self.recording))
         # Fork the PTY child before starting watchdog's threads.
         old_handlers = {}
         for sig in (signal.SIGTERM, signal.SIGHUP):
             old_handlers[sig] = signal.signal(sig, lambda *_: setattr(self, "running", False))
         os.write(1, b"\x1b[?2004h")
         try:
-            if self.watch_enabled:
+            if self.recording:
+                from .recorder import Recorder
+                self.recorder = Recorder(self.workspace, self.recording, excluded=[self.events],
+                                         backend=self.watch_backend, events=self.events)
+                self.recorder.start()
+                self.child.release()
+            elif self.watch_enabled:
                 from .filesystem import WorkspaceWatch
                 self.watcher = WorkspaceWatch(self.workspace, excluded=[self.events], backend=self.watch_backend)
                 self.watcher.start()
@@ -286,9 +297,11 @@ class Harness:
         finally:
             os.write(1, b"\x1b[?2004l")
             try:
-                if self.watcher:
+                self.child.close()
+                if self.recorder:
+                    self.recorder.close()
+                elif self.watcher:
                     self.watcher.close()
             finally:
-                self.child.close()
                 for sig, handler in old_handlers.items():
                     signal.signal(sig, handler)

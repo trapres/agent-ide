@@ -1,4 +1,4 @@
-"""Immutable-manifest Git spike. No filesystem watcher or retention policy yet."""
+"""Private Git history built from immutable manifests."""
 import os
 from pathlib import Path
 import subprocess
@@ -6,21 +6,27 @@ import tempfile
 
 
 class ScratchHistory:
-    def __init__(self, directory):
+    def __init__(self, directory, session="fixture", resume=False):
         self.directory = Path(directory).resolve()
         self.directory.mkdir(parents=True, exist_ok=True)
         self.repo = self.directory / "history.git"
-        if self.repo.exists():
+        if self.repo.exists() and not resume:
             raise ValueError("fixture requires a fresh directory; existing history is preserved")
         # Git-related inherited variables must not redirect fixture operations.
         self.env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
         self.env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull,
-                        GIT_AUTHOR_NAME="Labradour fixture", GIT_AUTHOR_EMAIL="fixture@localhost",
-                        GIT_COMMITTER_NAME="Labradour fixture", GIT_COMMITTER_EMAIL="fixture@localhost")
-        subprocess.run(["git", "init", "--bare", str(self.repo)], env=self.env,
-                       check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        self.head = None
-        self.tree = None
+                        GIT_AUTHOR_NAME="Labradour", GIT_AUTHOR_EMAIL="recorder@localhost",
+                        GIT_COMMITTER_NAME="Labradour", GIT_COMMITTER_EMAIL="recorder@localhost")
+        if not self.repo.exists():
+            subprocess.run(["git", "init", "--bare", str(self.repo)], env=self.env,
+                           check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if not session or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for c in session):
+            raise ValueError("invalid session ID")
+        self.ref = "refs/heads/sessions/" + session
+        result = subprocess.run(["git", "--git-dir=" + str(self.repo), "rev-parse", "--verify", self.ref],
+                                env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.head = result.stdout.decode().strip() if result.returncode == 0 else None
+        self.tree = self.git("rev-parse", self.head + "^{tree}").decode().strip() if self.head else None
 
     def git(self, *arguments, data=None, env=None):
         return subprocess.run(["git", "--git-dir=" + str(self.repo), *arguments],
@@ -50,7 +56,7 @@ class ScratchHistory:
         if self.head:
             args += ["-p", self.head]
         commit = self.git(*args, data=(reason + "\n").encode()).decode().strip()
-        self.git("update-ref", "refs/heads/sessions/fixture", commit, self.head or "0" * 40)
+        self.git("update-ref", self.ref, commit, self.head or "0" * 40)
         self.head, self.tree = commit, tree
         return commit
 

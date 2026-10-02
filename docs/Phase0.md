@@ -68,6 +68,10 @@ Measured outcomes:
 
 This confirms a usable export bridge. It does not yet validate browser/Tauri rendering, semantic accuracy, rename/binary edge cases, timeline scaling, distribution packaging, or historical semantic content selection. The exporter stays optional. The project's analysis/renderer separation is documented in its [README](https://github.com/superstealthlogic/gitdiffviz); the bare-repo failure and checkout success above are local measurements.
 
+## User verification update
+
+The user subsequently verified that both Codex and Claude run through Labradour's workspace launcher. This resolves the basic native-launch blocker and supports beginning Phase 1. It does not establish the complete terminal checklist, measured hook delivery, or Linux acceptance. Phase 1 progress is recorded in [Phase1.md](Phase1.md).
+
 ## Remaining Phase 0 acceptance gates
 
 1. Run authenticated Codex and Claude sessions through the harness outside the restrictive execution environment; visually verify input, multiline paste, colors, cursor, alternate screens, resize/mirror, approvals, and interruption.

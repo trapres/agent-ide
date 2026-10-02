@@ -1,6 +1,6 @@
 # Labradour implementation plan
 
-Date: 2026-10-02. Status: proposed architecture; no implementation yet.
+Date: 2026-10-02. Status: Phase 0 harness implemented; initial Phase 1 recorder in progress.
 
 MVP UI specification: [AgentUI.md](AgentUI.md). That document defines layout, focus, activity selection, and the pluggable visualization contract; this plan defines capture, storage, and delivery. Updated to use the three-pane MVP layout.
 
@@ -228,7 +228,7 @@ If terminal-emulation fidelity or throughput blocks the spike, evaluate a libvte
 
 ## 9. Delivery milestones and acceptance gates
 
-Phase 0 now includes a pyte-backed curses/PTY harness, native and polling watchdog probes, a fake-agent/hook-sink probe, immutable-manifest Git fixtures, and local gitdiffviz compatibility measurements. Core macOS automated checks pass. See [README.md](README.md) for commands and [docs/Phase0.md](docs/Phase0.md) for evidence and remaining gates. Authenticated native CLI hook delivery and Linux execution remain unverified because of environment restrictions; Phase 0 is not yet fully accepted.
+Phase 0 now includes a pyte-backed curses/PTY harness, native and polling watchdog probes, a fake-agent/hook-sink probe, immutable-manifest Git fixtures, and local gitdiffviz compatibility measurements. Core macOS automated checks pass. See [README.md](README.md) for commands and [docs/Phase0.md](docs/Phase0.md) for evidence and remaining gates. Authenticated native CLI hook delivery and Linux execution remain unverified because of environment restrictions; The user subsequently verified native Codex and Claude workspace launches; broader terminal/hook checks and Linux acceptance remain open. Phase 0 is not yet fully accepted. Phase 1 has begun with the durable recorder described in [docs/Phase1.md](docs/Phase1.md); user navigation is documented in [UIGuide.md](UIGuide.md).
 
 | Phase | Deliverable | Acceptance gate |
 | --- | --- | --- |

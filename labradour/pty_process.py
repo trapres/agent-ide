@@ -11,10 +11,17 @@ import time
 
 
 class PtyProcess:
-    def __init__(self, command, cwd, rows=24, columns=80, env=None):
+    def __init__(self, command, cwd, rows=24, columns=80, env=None, paused=False):
+        gate_read, gate_write = os.pipe() if paused else (None, None)
+        self.gate = gate_write
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
             try:
+                if paused:
+                    os.close(gate_write)
+                    if os.read(gate_read, 1) != b"1":
+                        os._exit(125)
+                    os.close(gate_read)
                 os.chdir(cwd)
                 # Set dimensions before exec, not just after the first render.
                 fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
@@ -24,12 +31,20 @@ class PtyProcess:
             except Exception as exc:
                 os.write(2, ("Labradour launch failed: %s\r\n" % exc).encode())
                 os._exit(127)
+        if paused:
+            os.close(gate_read)
         os.set_blocking(self.fd, False)
         self.status = None
         self.eof = False
         self.pending = bytearray()
         self.size = None
         self.resize(rows, columns)
+
+    def release(self):
+        if self.gate is not None:
+            os.write(self.gate, b"1")
+            os.close(self.gate)
+            self.gate = None
 
     def resize(self, rows, columns):
         size = (max(1, rows), max(1, columns))
@@ -86,6 +101,9 @@ class PtyProcess:
         return self.status
 
     def close(self):
+        if self.gate is not None:
+            os.close(self.gate)
+            self.gate = None
         try:
             # Descendants may outlive the direct child; signal its group too.
             os.killpg(self.pid, signal.SIGTERM)

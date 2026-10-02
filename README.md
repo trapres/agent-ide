@@ -1,8 +1,8 @@
 # Labradour
 
-An ncurses IDE for watching CLI agents work. Architecture: [AgentIDEPlan.md](AgentIDEPlan.md). UI specification: [AgentUI.md](AgentUI.md).
+An ncurses IDE for watching CLI agents work. Architecture: [AgentIDEPlan.md](AgentIDEPlan.md). UI specification: [AgentUI.md](AgentUI.md). User controls and review workflow: [UIGuide.md](UIGuide.md).
 
-The repository currently contains the **Phase 0 feasibility harness**, not the complete recorder or review MVP. It requires Python 3.9+, Git, pyte, watchdog, and wcwidth. Dependency versions are in [requirements.txt](requirements.txt); use `python3 -m pip install -r requirements.txt` with the interpreter you will launch. The tested macOS interpreter is Python 3.9.6; Linux verification remains pending.
+The repository contains the **Phase 0 harness and an initial Phase 1 durable recorder**. The full review MVP remains later work. It requires Python 3.9+, Git, pyte, watchdog, and wcwidth. Dependency versions are in [requirements.txt](requirements.txt); use `python3 -m pip install -r requirements.txt` with the interpreter you will launch. The tested macOS interpreter is Python 3.9.6; Linux verification remains pending.
 
 Start the deterministic fake agent from the repository root:
 
@@ -28,7 +28,7 @@ python3 -m labradour run --workspace /path/to/project --hooks claude -- claude
 
 The harness writes its configuration in a temporary directory and does not install or rewrite user/project settings. Codex hook trust still applies: review the generated definition through its native `/hooks` workflow. The Codex probe uses `--no-daemon` to keep a dedicated child process. No tool permissions or hook trust checks are bypassed. Native hook delivery/merging is still a verification gate; see [Phase 0 results](docs/Phase0.md).
 
-By default hook payloads are temporary and removed when the harness closes. Supply `--events /path/to/new-spool` to retain the hook files. The native agent itself runs normally in the chosen project. Add `--watch` to display filesystem observations; these are held in memory and attributed to external/unknown rather than assumed to belong to a tool. Content snapshots and durable filesystem history remain Phase 1 work. Watching starts after the PTY child is forked, so this probe does not guarantee capture of startup writes.
+By default hook payloads are temporary and removed when the harness closes. Supply `--events /path/to/new-spool` to retain the hook files. The native agent itself runs normally in the chosen project. Add `--watch` to display filesystem observations; these are held in memory and attributed to external/unknown rather than assumed to belong to a tool. For durable content checkpoints, use `--record` as described below. Observation-only `--watch` starts after the child launches, so it does not guarantee capture of startup writes.
 
 The default native watchdog backend is kqueue on macOS and the platform default on Linux. Use `--watch-backend polling` explicitly when needed. Git administration, `.venv`, Python caches, and the hook spool are excluded. This is a feasibility collector, with a bounded queue and a visible dropped-event count.
 
@@ -49,6 +49,19 @@ The default native watchdog backend is kqueue on macOS and the platform default 
 | `j` / `k` or arrows in Visualization | Scroll the payload |
 
 When the agent exits, Labradour keeps the activity and visualization panes open for review. Press **Ctrl-Q** to close Labradour, or press **Ctrl-]**, release it, then press plain **q** within two seconds. Ctrl-Q is reserved for Labradour outside bracketed paste; pasted control bytes do not trigger quitting.
+
+Save a session's journal and intermediate file contents:
+
+```sh
+python3 -m labradour run --workspace /path/to/project --record /path/to/private-recording -- codex
+python3 -m labradour history /path/to/private-recording
+python3 -m labradour history /path/to/private-recording --session SESSION_ID
+python3 -m labradour diff /path/to/private-recording BEFORE_COMMIT AFTER_COMMIT
+```
+
+`--record` includes filesystem watching and waits for baseline capture before starting the agent. Reuse the recording directory for additional sessions in the same workspace. It preserves intermediate changes in private Git history without modifying the project's index or refs. Full checkpoint commit IDs are available in `snapshot.completed` journal records. The live Visualization pane currently shows detail cards; use `diff` for historical source comparisons.
+
+Capture excludes Git administration, recorder data, common credential directories, `.env` files, and dependency/build directories. Large files are metadata-only; recording has a soft content quota. See [Phase 1 implementation and limits](docs/Phase1.md) before recording a workspace, and [UIGuide.md](UIGuide.md) for navigation.
 
 Default geometry is half-width Agent plus stacked quarter-screen review panes. Terminals smaller than 100×28 use the focused pane full screen. Session layout adjustments are not yet persisted. Arbitrary arrangements are specified in Phase 3.
 
@@ -72,4 +85,4 @@ python3 tools/phase0_probe.py \
   --output /tmp/labradour-probe.json
 ```
 
-The terminal backend now uses **pyte** for VT parsing, screen editing, UTF-8, wrapping, and history. Adapter code provides separate alternate/primary screens, bracketed paste/application cursor modes, DEC graphics, and pane-local xterm query replies. Curses approximates RGB colors to its palette. Mouse/focus reporting and enhanced keyboard modes remain unsupported and are reported. Real authenticated provider sessions still need validation outside the restricted execution environment. [Phase 0 results and remaining gates](docs/Phase0.md) distinguish automated evidence from unverified behavior.
+The terminal backend now uses **pyte** for VT parsing, screen editing, UTF-8, wrapping, and history. Adapter code provides separate alternate/primary screens, bracketed paste/application cursor modes, DEC graphics, and pane-local xterm query replies. Curses approximates RGB colors to its palette. Mouse/focus reporting and enhanced keyboard modes remain unsupported and are reported. The user has verified that both native providers launch through Labradour. Broader terminal behavior, hook coverage, and Linux acceptance remain pending. [Phase 0 results and remaining gates](docs/Phase0.md) distinguish automated evidence from unverified behavior.
