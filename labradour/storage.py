@@ -5,11 +5,13 @@ not filesystem allocation units, define the budget. A fixed health slot remains
 writable after the journal/content budget is exhausted.
 """
 from contextlib import contextmanager
+import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
 import sqlite3
+import subprocess
 import tempfile
 
 HEALTH_BYTES = 4096
@@ -26,6 +28,7 @@ def file_bytes(directory):
 class BudgetStore:
     def __init__(self, directory, limit):
         self.directory, self.limit = Path(directory), limit
+        self.stage_prefix = ".labradour-stage-" + hashlib.sha256(os.fsencode(str(self.directory.resolve()))).hexdigest()[:16] + "-"
         self.health_path = self.directory / "health.json"
         self.check({self.health_path: HEALTH_BYTES})
         if not self.health_path.exists():
@@ -41,8 +44,19 @@ class BudgetStore:
 
     @contextmanager
     def stage(self):
-        with tempfile.TemporaryDirectory(prefix=".labradour-stage-", dir=str(self.directory.parent)) as temporary:
+        with tempfile.TemporaryDirectory(prefix=self.stage_prefix, dir=str(self.directory.parent)) as temporary:
             yield Path(temporary)
+
+    def cleanup_stages(self):
+        # Call only while holding this store's writer lock. The hashed prefix
+        # prevents touching another store's live staging directories.
+        removed = []
+        for path in self.directory.parent.glob(self.stage_prefix + "*"):
+            if path.is_symlink() or not path.is_dir() or path.stat().st_uid != os.getuid():
+                continue
+            shutil.rmtree(path)
+            removed.append(path.name)
+        return removed
 
     @staticmethod
     def sync_directory(directory):
@@ -76,10 +90,23 @@ class BudgetStore:
             path = stage / "health.json"
             path.write_bytes(raw + b" " * (HEALTH_BYTES - len(raw)))
             # Its already-reserved size never grows, even after exhaustion.
-            with path.open("rb") as stream:
-                os.fsync(stream.fileno())
-            os.replace(path, self.health_path)
-            self.sync_directory(self.directory)
+            try:
+                with path.open("rb") as stream:
+                    os.fsync(stream.fileno())
+                os.replace(path, self.health_path)
+                self.sync_directory(self.directory)
+            except OSError:
+                self.health_in_place(raw)
+
+    def health_in_place(self, raw):
+        if isinstance(raw, dict):
+            raw = json.dumps(raw).encode()
+        raw = raw[:HEALTH_BYTES] + b" " * max(0, HEALTH_BYTES - len(raw))
+        if not self.health_path.exists() or self.health_path.stat().st_size != HEALTH_BYTES:
+            raise OSError("reserved health slot unavailable")
+        with self.health_path.open("r+b", buffering=0) as stream:
+            stream.write(raw)
+            os.fsync(stream.fileno())
 
     def json_file(self, name, payload):
         with self.stage() as stage:
@@ -87,7 +114,7 @@ class BudgetStore:
             source.write_text(json.dumps(payload, indent=2))
             self.install({self.directory / name: source})
 
-    def journal(self, callback):
+    def journal(self, callback, compact=False):
         """Build SQLite mutations outside the store and atomically replace it."""
         destination = self.directory / "journal.sqlite"
         with self.stage() as stage:
@@ -106,6 +133,8 @@ class BudgetStore:
                 db.execute("PRAGMA max_page_count=%d" % max(1, self.limit // page_size))
                 with db:
                     result = callback(db)
+                if compact:
+                    db.execute("VACUUM")
             except sqlite3.OperationalError as exc:
                 if "full" in str(exc):
                     raise BudgetExceeded("journal reached storage budget; recording stopped") from exc
@@ -143,16 +172,33 @@ class BudgetStore:
 
     def init_history(self, session):
         from .snapshots import ScratchHistory
-        if not (self.directory / "history.git").exists():
+        repo = self.directory / "history.git"
+        needs_init = not repo.exists()
+        if not needs_init:
+            current = ScratchHistory(self.directory, session=session, resume=True, storage=self)
+            try:
+                needs_init = current.git("rev-parse", "--is-bare-repository").strip() != b"true"
+            except subprocess.CalledProcessError:
+                needs_init = True
+        if needs_init:
             with self.stage() as stage:
-                ScratchHistory(stage, session=session)
+                if repo.exists():
+                    shutil.copytree(repo, stage / "history.git")
+                    candidate = ScratchHistory(stage, session=session, resume=True)
+                    candidate.git("init", "--bare", str(candidate.repo))
+                else:
+                    ScratchHistory(stage, session=session)
                 self.install(self.git_files(stage))
-                # Git requires these directories even before the first object/ref.
                 for relative in ("objects/info", "objects/pack", "refs/heads", "refs/tags"):
-                    (self.directory / "history.git" / relative).mkdir(parents=True, exist_ok=True)
+                    (repo / relative).mkdir(parents=True, exist_ok=True)
         return ScratchHistory(self.directory, session=session, resume=True, storage=self)
 
 
 def read_health(directory):
     path = Path(directory) / "health.json"
-    return json.loads(path.read_text()) if path.exists() else {"status": "legacy recording; no storage health record"}
+    if not path.exists():
+        return {"status": "legacy recording; no storage health record"}
+    try:
+        return json.loads(path.read_text())
+    except (ValueError, OSError):
+        return {"status": "unreadable-health", "error": "health update was interrupted or unavailable"}

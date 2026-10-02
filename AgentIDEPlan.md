@@ -1,6 +1,6 @@
 # Labradour implementation plan
 
-Date: 2026-10-02. Status: Phase 0 harness implemented; Phase 1 recorder and configurable capture/storage slice implemented; recovery/retention hardening remains in progress.
+Date: 2026-10-02. Status: Phase 0 harness implemented; Phase 1 recorder, capture/storage policy, and crash recovery/retention slices implemented; performance and cross-platform acceptance remain in progress.
 
 MVP UI specification: [AgentUI.md](AgentUI.md). That document defines layout, focus, activity selection, and the pluggable visualization contract; this plan defines capture, storage, and delivery. Updated to use the three-pane MVP layout.
 

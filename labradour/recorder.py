@@ -42,10 +42,14 @@ class Recorder:
         self.db = None
         try:
             self.storage = BudgetStore(self.directory, self.policy.storage_budget_bytes)
+            self.storage.cleanup_stages()
+            from .retention import resume_prune
+            resume_prune(self.storage)
             self.suspended = False
             self.storage.journal(lambda db: db.executescript('''
                 CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, started_ns INTEGER, status TEXT);
+                CREATE TABLE IF NOT EXISTS retention(id TEXT PRIMARY KEY, completed_ns INTEGER, removed_sessions TEXT);
                 CREATE TABLE IF NOT EXISTS events(sequence INTEGER PRIMARY KEY AUTOINCREMENT,
                     event_id TEXT UNIQUE NOT NULL, session_id TEXT NOT NULL, kind TEXT NOT NULL,
                     received_ns INTEGER NOT NULL, record TEXT NOT NULL);
@@ -72,6 +76,9 @@ class Recorder:
             self.dropped = 0
             self.failed = False
             self._recover()
+            if (self.directory / "history.git").exists():
+                from .retention import reclaim_loose_objects
+                reclaim_loose_objects(self.storage)
             if self.suspended:
                 raise BudgetExceeded("recovery requires a larger storage budget")
             self.mutate(lambda db: db.execute("INSERT INTO sessions VALUES(?, ?, 'running')", (self.session, time.time_ns())))
@@ -101,6 +108,7 @@ class Recorder:
     def limit_reached(self, exc):
         first = not self.suspended
         self.suspended, self.failed = True, True
+        self.last_error = exc
         self.notice = "RECORDING STOPPED: storage budget; agent continues"
         health = {"status": "storage-limit", "session_id": self.session, "error": str(exc),
                   "budget_bytes": self.storage.limit, "last_commit": self.history.head if self.history else None}
@@ -112,6 +120,25 @@ class Recorder:
                                        "persisted_in": "health.json"})
             except queue.Full:
                 pass
+
+    def storage_failed(self, exc):
+        self.suspended, self.failed = True, True
+        self.last_error = exc
+        self.notice = "RECORDING STOPPED: storage failure; agent continues"
+        health = {"status": "storage-failure", "session_id": self.session, "error": str(exc)[:1000],
+                  "budget_bytes": self.storage.limit, "last_commit": self.history.head if self.history else None}
+        try:
+            self.storage.health(health)
+        except OSError:
+            try:
+                self.storage.health_in_place(health)
+            except OSError:
+                self.notice += " | health could not be persisted"
+        try:
+            self.output.put_nowait({"kind": "storage.failed", "event_id": uuid.uuid4().hex,
+                                   "received_ns": time.time_ns(), "payload": health})
+        except queue.Full:
+            pass
 
     def append(self, kind, payload, source="recorder", event_id=None):
         if self.suspended:
@@ -143,6 +170,9 @@ class Recorder:
         except BudgetExceeded as exc:
             self.limit_reached(exc)
             return None
+        except (OSError, sqlite3.OperationalError) as exc:
+            self.storage_failed(exc)
+            return None
         if count:
             record["sequence"] = sequence
             try:
@@ -156,13 +186,26 @@ class Recorder:
             self.session = session
             history = self.storage.init_history(session)
             events = [json.loads(row[0]) for row in self.db.execute("SELECT record FROM events WHERE session_id=? ORDER BY sequence", (session,))]
+            # A completed lifecycle event may have reached disk just before
+            # the final sessions-table update was interrupted.
+            terminal = next((r for r in reversed(events) if r["kind"] == "session.completed"), None)
+            if terminal:
+                status = "completed-with-gaps" if terminal["payload"].get("quality") == "capture gaps" else "completed"
+                self.mutate(lambda db: db.execute("UPDATE sessions SET status=? WHERE id=?", (status, session)))
+                continue
             finished = {r["payload"].get("intent") for r in events if r["kind"] in
                         ("snapshot.completed", "snapshot.failed", "snapshot.interrupted")}
             for record in events:
                 if record["kind"] == "snapshot.intent" and record["event_id"] not in finished:
-                    self.append("snapshot.interrupted", {"intent": record["event_id"], "recoverable_commit": history.head,
+                    result = self.append("snapshot.interrupted", {"intent": record["event_id"], "recoverable_commit": history.head,
+                                "previous_commit": record["payload"].get("previous_commit"),
+                                "checkpoint_installed": history.head != record["payload"].get("previous_commit"),
                                 "quality": "ref retained; capture completion was interrupted"})
-            self.append("session.interrupted", {"last_commit": history.head, "quality": "crash gap; workspace will be reconciled in a new session"})
+                    if result is None:
+                        raise self.last_error
+            result = self.append("session.interrupted", {"last_commit": history.head, "quality": "crash gap; workspace will be reconciled in a new session"})
+            if result is None:
+                raise self.last_error
             self.mutate(lambda db: db.execute("UPDATE sessions SET status='interrupted' WHERE id=?", (session,)))
         self.session = uuid.uuid4().hex
 
@@ -252,12 +295,12 @@ class Recorder:
     def capture(self, reason):
         if self.suspended:
             if reason == "baseline":
-                raise BudgetExceeded("baseline cannot be captured within storage budget")
+                raise getattr(self, "last_error", BudgetExceeded("baseline cannot be captured within storage budget"))
             return
         intent = self.append("snapshot.intent", {"reason": reason, "previous_commit": self.history.head})
         if intent is None:
             if reason == "baseline":
-                raise BudgetExceeded("baseline cannot be captured within storage budget")
+                raise getattr(self, "last_error", BudgetExceeded("baseline cannot be captured within storage budget"))
             return
         started = time.time_ns()
         try:
@@ -276,11 +319,15 @@ class Recorder:
                         "changes": changes, "metadata": metadata, "issues": issues})
             if self.suspended:
                 if reason == "baseline":
-                    raise BudgetExceeded("baseline completion exceeded storage budget")
+                    raise getattr(self, "last_error", BudgetExceeded("baseline completion exceeded storage budget"))
                 return
             self.notice = "recording %s | %s" % (self.session[:8], "partial capture: %d omissions, %d issues" % (len(omitted), len(issues)) if issues or omitted else "checkpoint " + commit[:8])
         except BudgetExceeded as exc:
             self.limit_reached(exc)
+            if reason == "baseline":
+                raise
+        except (OSError, sqlite3.OperationalError) as exc:
+            self.storage_failed(exc)
             if reason == "baseline":
                 raise
         except Exception as exc:
@@ -334,6 +381,8 @@ class Recorder:
                 if records or overflow or time.monotonic() >= next_scan:
                     self.capture("watcher overflow" if overflow else "mutation batch" if records else "periodic reconciliation")
                     next_scan = time.monotonic() + self.interval
+        except (OSError, sqlite3.OperationalError) as exc:
+            self.storage_failed(exc)
         except Exception as exc:
             self.failed = True
             self.notice = "recorder stopped: " + str(exc)
@@ -368,6 +417,8 @@ class Recorder:
                     self.storage.health({"status": "completed", "session_id": self.session, "budget_bytes": self.storage.limit})
         except BudgetExceeded as exc:
             self.limit_reached(exc)
+        except (OSError, sqlite3.OperationalError) as exc:
+            self.storage_failed(exc)
         finally:
             try:
                 self.watcher.close()
@@ -382,9 +433,11 @@ def read_history(directory, session=None):
         if session is None:
             sessions = [dict(id=r[0], started_ns=r[1], status=r[2]) for r in db.execute("SELECT * FROM sessions ORDER BY started_ns")]
             health = read_health(directory)
+            if health.get("recording_health"):
+                health = health["recording_health"]
             for session in sessions:
-                if session["id"] == health.get("session_id") and health.get("status") == "storage-limit":
-                    session["status"] = "storage-limit"
+                if session["id"] == health.get("session_id") and health.get("status") in ("storage-limit", "storage-failure"):
+                    session["status"] = health["status"]
             return sessions
         result = []
         for sequence, raw in db.execute("SELECT sequence, record FROM events WHERE session_id=? ORDER BY sequence", (session,)):

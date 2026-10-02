@@ -4,6 +4,7 @@ import json
 import importlib.metadata
 from pathlib import Path
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -56,6 +57,10 @@ def main():
     policy_arguments(preview)
     health = commands.add_parser("recording-status", help="Show persistent recording health, including storage exhaustion")
     health.add_argument("directory", type=Path)
+    prune = commands.add_parser("prune", help="Preview or apply whole-session retention in an inactive recording")
+    prune.add_argument("directory", type=Path)
+    prune.add_argument("--keep-sessions", type=int, default=10)
+    prune.add_argument("--apply", action="store_true", help="Remove the previewed old sessions and reclaim unreferenced loose Git objects")
     history = commands.add_parser("history", help="List saved sessions or print a session journal")
     history.add_argument("directory", type=Path)
     history.add_argument("--session")
@@ -81,6 +86,13 @@ def main():
     elif args.mode == "recording-status":
         from .storage import read_health
         print(json.dumps(read_health(args.directory), indent=2))
+    elif args.mode == "prune":
+        from .retention import apply_retention, plan_retention
+        try:
+            result = apply_retention(args.directory, args.keep_sessions) if args.apply else plan_retention(args.directory, args.keep_sessions)
+        except (ValueError, OSError, sqlite3.Error, subprocess.CalledProcessError) as exc:
+            parser.exit(2, "Labradour: " + str(exc) + "\n")
+        print(json.dumps(result, indent=2))
     elif args.mode == "history":
         from .recorder import read_history
         print(json.dumps(read_history(args.directory, args.session), indent=2))
@@ -161,10 +173,9 @@ def main():
             from .ui import Harness
             harness = Harness(command, workspace, events, args.side, args.agent_width, args.activity_height,
                               args.watch, args.watch_backend, args.record, policy)
-            from .storage import BudgetExceeded
             try:
                 curses.wrapper(harness.run)
-            except (BudgetExceeded, ValueError) as exc:
+            except (OSError, ValueError, sqlite3.Error, subprocess.CalledProcessError) as exc:
                 parser.exit(2, "Labradour: " + str(exc) + "\n")
 
 

@@ -75,6 +75,15 @@ python3 -m labradour recording-status /path/to/private-recording
 
 Use `--capture-policy FILE` for reusable JSON rules. Size options override file values; repeated exclusion/metadata patterns extend them. The effective policy is printed before recording and available with **Ctrl-] then p**. Budget exhaustion stops recording while the agent continues, preserves saved history, and reports the reason through a reserved health record. [UIGuide.md](UIGuide.md) documents policy examples and budget scope.
 
+Preview and apply retention after closing the recorder:
+
+```sh
+python3 -m labradour prune /path/to/private-recording --keep-sessions 5
+python3 -m labradour prune /path/to/private-recording --keep-sessions 5 --apply
+```
+
+Retention removes whole older sessions, compacts their journal rows, deletes their private session refs/policy files, and reclaims unreferenced loose Git objects. Shared/surviving evidence and packed objects remain protected. The writer lock prevents cleanup during recording. Interrupted pruning resumes on the next launch or applied prune; owned abandoned staging directories are cleaned automatically. Disk-full failures stop recording while the agent continues, with a best-effort reserved health-slot diagnostic. See [UIGuide.md](UIGuide.md) for recovery and retention limits.
+
 Default geometry is half-width Agent plus stacked quarter-screen review panes. Terminals smaller than 100×28 use the focused pane full screen. Session layout adjustments are not yet persisted. Arbitrary arrangements are specified in Phase 3.
 
 Run verification and probes:

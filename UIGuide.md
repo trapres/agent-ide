@@ -65,7 +65,7 @@ Files above the file/scan limit and metadata-only matches have omission reasons 
 
 ## Storage exhaustion
 
-The hard budget applies to the sum of regular-file bytes inside the recording directory, including journal, Git history, policy files, and a reserved health record. The default is 512MiB; the minimum configurable budget is 64KiB. Filesystem allocation overhead, temporary staging, and the hook spool are separate from this budget. Staging can temporarily duplicate the journal/Git history plus a new checkpoint and needs extra space on the same filesystem. Successful and rejected writes clean it up; a process crash can leave private `.labradour-stage-*` directories for later recovery/cleanup work.
+The hard budget applies to the sum of regular-file bytes inside the recording directory, including journal, Git history, policy files, and a reserved health record. The default is 512MiB; the minimum configurable budget is 64KiB. Filesystem allocation overhead, temporary staging, and the hook spool are separate from this budget. Staging can temporarily duplicate the journal/Git history plus a new checkpoint and needs extra space on the same filesystem. Successful and rejected writes clean it up. On the next launch or applied prune, Labradour removes abandoned staging directories identified as belonging to that store. Older staging directories without a store identifier remain untouched.
 
 If a write cannot fit, Labradour displays **RECORDING STOPPED: storage budget; agent continues**. Earlier history remains available; later activity/content is not recorded. A fixed-size health record preserves the reason even when the journal has no room. Inspect it after exit:
 
@@ -73,7 +73,31 @@ If a write cannot fit, Labradour displays **RECORDING STOPPED: storage budget; a
 python3 -m labradour recording-status /path/to/labradour-recording
 ```
 
-Restart with a larger `--storage-budget` or choose a fresh recording directory. There is no automatic pruning in this slice. A budget smaller than the existing store is rejected without deleting saved history. The hook spool must be outside the recording directory so external hook writes cannot bypass the store's budget.
+Restart with a larger `--storage-budget` or choose a fresh recording directory. Retention cleanup is explicit; use the preview/apply workflow below. A budget smaller than the existing store is rejected without deleting saved history. The hook spool must be outside the recording directory so external hook writes cannot bypass the store's budget.
+
+## Recover and retain saved sessions
+
+After a crash, launch Labradour with the same workspace and recording directory. It releases no agent input until recovery and the new baseline finish. The previous session remains available as `interrupted`; unfinished snapshots record the retained commit and whether a new checkpoint was installed. A committed session-end event is recognized as completed even if its status-table update was interrupted. Recovery starts a separate session from current workspace contents.
+
+On disk-full or another storage error, the footer shows **RECORDING STOPPED: storage failure; agent continues**. `recording-status` shows the reason. Labradour tries an overwrite of the reserved health slot if it cannot create staging; if even that write fails, the footer says health could not be persisted. Restore writable storage/free space before restarting. This does not claim recovery from arbitrary filesystem corruption or power loss.
+
+Preview whole-session retention after closing the recorder:
+
+```sh
+python3 -m labradour prune /path/to/labradour-recording --keep-sessions 5
+```
+
+The JSON result lists sessions to keep/remove and the current retained bytes. To execute that policy:
+
+```sh
+python3 -m labradour prune /path/to/labradour-recording --keep-sessions 5 --apply
+```
+
+`--apply` removes the old sessions' journal rows, policy files, and private Git session refs, compacts the journal, and reclaims unreachable loose Git objects. Earlier checkpoints within each surviving session remain available. Shared objects and commits explicitly referenced by surviving journal evidence remain protected. Packed Git objects stay intact; pack compaction is deferred, so reclaimed space may be smaller for a store packed with external Git tools. The result reports actual retained bytes and object reclamation.
+
+The default retains the newest 10 sessions; the minimum is one. Running-status sessions are protected in previews, and applying retention while a writer is active is refused. If a crash left a session marked running, restart once to recover its status before considering it for removal. The preview reports a pending prune; the next launch or applied prune resumes its originally recorded removals before proceeding.
+
+Pruning is resumable: the health record holds its intent, the journal is pruned before refs/content are removed, and repeated cleanup is safe. A journal audit table retains the removed session IDs. The next launch also reclaims unreferenced loose fragments from incomplete checkpoint installations. Cleanup never modifies the workspace or project Git repository. There is no age-based or automatic retention in this slice.
 
 ## The three windows
 
