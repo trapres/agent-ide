@@ -2,6 +2,8 @@
 
 Date: 2026-10-02. Status: proposed. Companion architecture: [AgentIDEPlan.md](AgentIDEPlan.md).
 
+The layout rules below describe the initial default preset. Phase 3 of the implementation plan will expand this specification to arbitrary arrangements of the same three panes before Phase 4 implements the review MVP. That expansion will define nested splits, pane ordering, presets, configuration validation, editing commands, and state-preserving layout changes; Activity-above-Visualization will be a default rather than a universal constraint.
+
 ## 1. Screen structure
 
 The MVP has exactly three primary panes:
@@ -184,4 +186,4 @@ All operations must be keyboard accessible. Use visible text labels for focus/st
 7. Rapid selection changes cannot display an obsolete visualizer result. Slow export cannot delay agent typing or event capture.
 8. With gitdiffviz unavailable, every action is still inspectable in the quarter-screen pane. With it installed, graphical opening is explicit and uses the selected historical evidence.
 
-Implement this UI in the review MVP phase of [AgentIDEPlan.md](AgentIDEPlan.md); validate layout and focus in the initial PTY spike. The optional graphical exporter extends the same visualizer registry in the following phase.
+Validate the initial layout and focus in the Phase 0 PTY spike. Expand this specification and its acceptance scenarios for arbitrary arrangements in Phase 3, then implement the resulting UI in Phase 4 (review MVP) of [AgentIDEPlan.md](AgentIDEPlan.md). The optional graphical exporter extends the same visualizer registry in Phase 5.
