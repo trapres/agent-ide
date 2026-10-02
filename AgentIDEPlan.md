@@ -1,6 +1,6 @@
 # Labradour implementation plan
 
-Date: 2026-10-02. Status: Phase 0 harness implemented; Phase 1 recorder, capture/storage policy, and crash recovery/retention slices implemented; performance and cross-platform acceptance remain in progress.
+Date: 2026-10-02. Status: Phase 0 harness implemented; Phase 1 generic recorder implemented and accepted by automated macOS/Linux checks; native adapter integration is next.
 
 MVP UI specification: [AgentUI.md](AgentUI.md). That document defines layout, focus, activity selection, and the pluggable visualization contract; this plan defines capture, storage, and delivery. Updated to use the three-pane MVP layout.
 
@@ -220,7 +220,7 @@ Keep it optional behind the visualizer contract's graphical-export capability. I
 
 ## 8. Implementation stack and modules
 
-Start with **Python 3 + curses/ncurses**, SQLite, Git subprocess plumbing, `pyte` for the VT screen engine with a pane-local protocol adapter, and `watchdog` for filesystem observations. Phase 0 automated macOS checks now validate this terminal/watcher combination against deterministic fixtures. Authenticated provider fidelity and Linux support remain validation gates before locking in the stack. Use explicit subprocess argument arrays and NUL-safe filename handling.
+Start with **Python 3 + curses/ncurses**, SQLite, Git subprocess plumbing, `pyte` for the VT screen engine with a pane-local protocol adapter, and `watchdog` for filesystem observations. Phase 0 automated macOS checks now validate this terminal/watcher combination against deterministic fixtures. Automated Linux verification now also passes. Human authenticated-provider fidelity remains a validation gate. Use explicit subprocess argument arrays and NUL-safe filename handling.
 
 Suggested modules: `supervisor`, `terminal`, `adapters/{generic,codex,claude}`, `collector`, `journal`, `filesystem`, `snapshots`, `actions`, `diffs`, `ui/{layout,activity,selection}`, `visualizers/{registry,file_create,source_diff,file_delete,command,generic}`, and `exporters/gitdiffviz`. Keep the recorder, adapters, action projection, and visualization preparation independently testable from curses.
 
@@ -228,7 +228,7 @@ If terminal-emulation fidelity or throughput blocks the spike, evaluate a libvte
 
 ## 9. Delivery milestones and acceptance gates
 
-Phase 0 now includes a pyte-backed curses/PTY harness, native and polling watchdog probes, a fake-agent/hook-sink probe, immutable-manifest Git fixtures, and local gitdiffviz compatibility measurements. Core macOS automated checks pass. See [README.md](README.md) for commands and [docs/Phase0.md](docs/Phase0.md) for evidence and remaining gates. Authenticated native CLI hook delivery and Linux execution remain unverified because of environment restrictions; The user subsequently verified native Codex and Claude workspace launches; broader terminal/hook checks and Linux acceptance remain open. Phase 0 is not yet fully accepted. Phase 1 has begun with the durable recorder described in [docs/Phase1.md](docs/Phase1.md); user navigation is documented in [UIGuide.md](UIGuide.md).
+Phase 0 now includes a pyte-backed curses/PTY harness, native and polling watchdog probes, a fake-agent/hook-sink probe, immutable-manifest Git fixtures, and local gitdiffviz compatibility measurements. Core macOS automated checks pass. See [README.md](README.md) for commands and [docs/Phase0.md](docs/Phase0.md) for evidence and remaining gates. The user verified native Codex and Claude workspace launches, and 57 automated tests now pass on macOS and Linux. Broader human terminal/hook checks remain open; Phase 0 is not yet fully accepted. Phase 1 generic recorder acceptance and measurements are described in [docs/Phase1.md](docs/Phase1.md) and [docs/RecorderAcceptance.md](docs/RecorderAcceptance.md); user navigation is documented in [UIGuide.md](UIGuide.md).
 
 | Phase | Deliverable | Acceptance gate |
 | --- | --- | --- |

@@ -231,6 +231,7 @@ with r.storage.stage() as stage:
                     if name == "source":
                         raise PermissionError(errno.EACCES, "unreadable")
                     return original(name, *args, **kwargs)
+                (workspace / "source").chmod(0o000)
                 with patch("labradour.recorder.os.open", side_effect=fail_source):
                     recorder.capture("interrupted read")
                 self.assertEqual(recorder.history.head, before)

@@ -71,6 +71,12 @@ class Recorder:
             self.stop = threading.Event()
             self.thread = None
             self.manifest = {}
+            self.signatures = {}
+            self.force_read = True
+            self.scan_count = 0
+            self.last_metadata = []
+            self.metrics = {"scan_files": 0, "read_files": 0, "read_bytes": 0, "cache_hits": 0,
+                            "captures": 0, "watcher_queue": 0, "watcher_dropped": 0}
             self.notice = "recorder starting"
             self.history = None
             self.dropped = 0
@@ -79,6 +85,7 @@ class Recorder:
             if (self.directory / "history.git").exists():
                 from .retention import reclaim_loose_objects
                 reclaim_loose_objects(self.storage)
+                self.storage.refresh_usage()
             if self.suspended:
                 raise BudgetExceeded("recovery requires a larger storage budget")
             self.mutate(lambda db: db.execute("INSERT INTO sessions VALUES(?, ?, 'running')", (self.session, time.time_ns())))
@@ -141,8 +148,40 @@ class Recorder:
             pass
 
     def append(self, kind, payload, source="recorder", event_id=None):
+        records = self.append_many([(kind, payload, source, event_id)])
+        return records[0] if records else None
+
+    def append_many(self, events):
         if self.suspended:
-            return None
+            return []
+        prepared = [self.prepare(kind, payload, source, event_id) for kind, payload, source, event_id in events]
+        if not prepared:
+            return []
+        def insert(db):
+            result = []
+            for record, raw in prepared:
+                cursor = db.execute("INSERT OR IGNORE INTO events(event_id, session_id, kind, received_ns, record) VALUES(?,?,?,?,?)",
+                                    (record["event_id"], self.session, record["kind"], record["received_ns"], raw))
+                result.append((cursor.rowcount, cursor.lastrowid))
+            return result
+        try:
+            inserted = self.mutate(insert)
+        except BudgetExceeded as exc:
+            self.limit_reached(exc)
+            return []
+        except (OSError, sqlite3.OperationalError) as exc:
+            self.storage_failed(exc)
+            return []
+        for (record, _), (count, sequence) in zip(prepared, inserted):
+            if count:
+                record["sequence"] = sequence
+                try:
+                    self.output.put_nowait(record)
+                except queue.Full:
+                    self.notice = "UI queue full; durable events retained; use history command"
+        return [record for record, _ in prepared]
+
+    def prepare(self, kind, payload, source, event_id):
         record = {"schema_version": 1, "event_id": event_id or uuid.uuid4().hex,
                   "workspace_id": self.workspace_id, "session_id": self.session,
                   "received_ns": time.time_ns(), "monotonic_ns": time.monotonic_ns(),
@@ -161,25 +200,7 @@ class Recorder:
                                  isinstance(payload[k], (str, int, bool, type(None))) and len(str(payload[k])) <= 256}
             record["payload"].update(payload_truncated=True, original_bytes=len(raw.encode()))
             raw = json.dumps(record)
-        def insert(db):
-            cursor = db.execute("INSERT OR IGNORE INTO events(event_id, session_id, kind, received_ns, record) VALUES(?,?,?,?,?)",
-                                (record["event_id"], self.session, kind, record["received_ns"], raw))
-            return cursor.rowcount, cursor.lastrowid
-        try:
-            count, sequence = self.mutate(insert)
-        except BudgetExceeded as exc:
-            self.limit_reached(exc)
-            return None
-        except (OSError, sqlite3.OperationalError) as exc:
-            self.storage_failed(exc)
-            return None
-        if count:
-            record["sequence"] = sequence
-            try:
-                self.output.put_nowait(record)
-            except queue.Full:
-                self.notice = "UI queue full; durable events retained; use history command"
-        return record
+        return record, raw
 
     def _recover(self):
         for (session,) in self.db.execute("SELECT id FROM sessions WHERE status='running'").fetchall():
@@ -218,6 +239,10 @@ class Recorder:
     def scan(self):
         manifest, metadata, issues = {}, [], []
         total = 0
+        signatures = {}
+        metrics = {"scan_files": 0, "read_files": 0, "read_bytes": 0, "cache_hits": 0}
+        started = time.perf_counter()
+        signature = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns, s.st_mode)
         def retain(path):
             nonlocal total
             if path not in self.manifest:
@@ -246,6 +271,7 @@ class Recorder:
                 path = str(relative)
                 try:
                     before = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                    metrics["scan_files"] += 1
                     if stat.S_ISDIR(before.st_mode):
                         metadata.append({"path": path, "type": "directory"})
                         continue
@@ -260,6 +286,14 @@ class Recorder:
                             metadata.append({"path": path, "type": "metadata-only", "size": before.st_size,
                                              "reason": "max_file_bytes" if before.st_size > self.max_file else "max_capture_bytes"})
                             continue
+                        cached = self.manifest.get(path)
+                        if not self.force_read and cached is not None and self.signatures.get(path) == signature(before):
+                            content, mode = cached[1], cached[0]
+                            manifest[path] = mode, content
+                            signatures[path] = signature(before)
+                            total += len(content)
+                            metrics["cache_hits"] += 1
+                            continue
                         content = None
                         for _ in range(3):
                             read_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
@@ -268,9 +302,10 @@ class Recorder:
                                 if not stat.S_ISREG(first.st_mode):
                                     raise OSError("file type changed during capture")
                                 candidate = stream.read(self.max_file + 1)
+                                metrics["read_files"] += 1
+                                metrics["read_bytes"] += len(candidate)
                                 last = os.fstat(stream.fileno())
                             after = os.stat(name, dir_fd=fd, follow_symlinks=False)
-                            signature = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns, s.st_mode)
                             if signature(first) == signature(last) == signature(after) and len(candidate) <= self.max_file:
                                 content = candidate
                                 before = after
@@ -287,9 +322,13 @@ class Recorder:
                         continue
                     total += len(content)
                     manifest[path] = mode, content
+                    signatures[path] = signature(before)
                 except OSError as exc:
                     issues.append({"path": path, "error": str(exc)})
                     retain(path)
+        self.scanned_signatures = signatures
+        self.force_read = False
+        self.metrics.update(metrics, scan_ms=round((time.perf_counter() - started) * 1000, 3))
         return manifest, metadata, issues
 
     def capture(self, reason):
@@ -297,6 +336,16 @@ class Recorder:
             if reason == "baseline":
                 raise getattr(self, "last_error", BudgetExceeded("baseline cannot be captured within storage budget"))
             return
+        capture_started = time.perf_counter()
+        self.scan_count += 1
+        self.force_read = reason in ("baseline", "startup reconciliation", "session end", "watcher overflow") or self.scan_count % 15 == 0
+        if reason == "periodic reconciliation":
+            preview = self.scan()
+            if preview[0] == self.manifest and preview[1] == self.last_metadata and not preview[2]:
+                self.signatures = self.scanned_signatures
+                return
+        else:
+            preview = None
         intent = self.append("snapshot.intent", {"reason": reason, "previous_commit": self.history.head})
         if intent is None:
             if reason == "baseline":
@@ -304,7 +353,7 @@ class Recorder:
             return
         started = time.time_ns()
         try:
-            manifest, metadata, issues = self.scan()
+            manifest, metadata, issues = preview if preview is not None else self.scan()
             omitted = {m["path"] for m in metadata if m["type"] != "directory"}
             changes = [{"path": p, "operation": "file.create" if p not in self.manifest else
                         "file.omitted" if p in omitted else "file.delete" if p not in manifest else "file.modify"}
@@ -312,11 +361,16 @@ class Recorder:
             before = self.history.head
             commit = self.history.head if manifest == self.manifest and self.history.head else self.history.checkpoint(manifest, reason)
             self.manifest = manifest
+            self.signatures = self.scanned_signatures
+            self.last_metadata = metadata
+            self.metrics["captures"] += 1
+            self.metrics["capture_prepare_ms"] = round((time.perf_counter() - capture_started) * 1000, 3)
             self.append("snapshot.completed", {"intent": intent["event_id"], "reason": reason,
                         "before_commit": before, "commit": commit, "tree": self.history.tree,
                         "scan_started_ns": started, "scan_finished_ns": time.time_ns(),
                         "quality": "partial" if issues or any(m["type"] != "directory" for m in metadata) else "observed-live-state",
-                        "changes": changes, "metadata": metadata, "issues": issues})
+                        "changes": changes, "metadata": metadata, "issues": issues, "metrics": {k: v for k, v in self.metrics.items() if k != "capture_ms"}})
+            self.metrics["capture_ms"] = round((time.perf_counter() - capture_started) * 1000, 3)
             if self.suspended:
                 if reason == "baseline":
                     raise getattr(self, "last_error", BudgetExceeded("baseline completion exceeded storage budget"))
@@ -367,13 +421,19 @@ class Recorder:
     def _run(self):
         next_scan = time.monotonic() + self.interval
         try:
-            while not self.stop.wait(.1):
+            while not self.stop.wait(.02):
                 if self.suspended:
                     break
                 self.collect_hooks()
                 records = self.watcher.drain()
+                self.metrics.update(watcher_queue=self.watcher.events.qsize(), watcher_dropped=self.watcher.dropped)
                 for record in records:
-                    self.append("filesystem.observed", record["payload"], "watchdog", record["event_id"])
+                    path = record["payload"]["path"]
+                    self.signatures.pop(path, None)
+                    if record["payload"].get("destination"):
+                        self.signatures.pop(record["payload"]["destination"], None)
+                self.append_many([("filesystem.observed", dict(r["payload"], observed_ns=r["received_ns"]),
+                                   "watchdog", r["event_id"]) for r in records])
                 overflow = self.watcher.dropped != self.dropped
                 if overflow:
                     self.dropped = self.watcher.dropped

@@ -1,0 +1,80 @@
+{
+  "platform": "macOS-26.7.1-arm64-arm-64bit",
+  "python": "3.9.6",
+  "files": 1000,
+  "iterations": 20,
+  "file_content_bytes": 2048,
+  "startup_ms": 60.876,
+  "baseline_ms": 1372.51,
+  "unchanged_scan": {
+    "samples": 20,
+    "median_ms": 30.224,
+    "p95_ms": 32.282,
+    "max_ms": 32.891
+  },
+  "small_file_capture": {
+    "samples": 20,
+    "median_ms": 177.503,
+    "p95_ms": 206.928,
+    "max_ms": 252.517
+  },
+  "journal_64_events": {
+    "samples": 20,
+    "median_ms": 3.077,
+    "p95_ms": 3.814,
+    "max_ms": 3.999
+  },
+  "store_bytes_initial": 209989,
+  "store_bytes_final": 1048557,
+  "scope": "disposable workspace; filesystem rows and synthetic native CLI; provider-hook coverage is separate",
+  "live": {
+    "snapshot_visible": {
+      "samples": 20,
+      "median_ms": 222.544,
+      "p95_ms": 316.667,
+      "max_ms": 377.079
+    },
+    "filesystem_row_visible": {
+      "samples": 20,
+      "median_ms": 38.197,
+      "p95_ms": 135.8,
+      "max_ms": 137.061
+    },
+    "max_queue_depth_sampled": 1,
+    "watcher_dropped": 0,
+    "durable_events_consumed": 65,
+    "metrics": {
+      "scan_files": 1021,
+      "read_files": 1,
+      "read_bytes": 7,
+      "cache_hits": 1000,
+      "captures": 22,
+      "watcher_queue": 0,
+      "watcher_dropped": 0,
+      "scan_ms": 30.888,
+      "capture_prepare_ms": 180.3,
+      "capture_ms": 182.372
+    },
+    "fidelity": "waited for each checkpoint; intra-scan transient writes are not guaranteed"
+  },
+  "ui_recording_disabled": {
+    "samples": 20,
+    "median_ms": 9.886,
+    "p95_ms": 38.994,
+    "max_ms": 43.366
+  },
+  "ui_recording_with_background_writes": {
+    "samples": 20,
+    "median_ms": 15.619,
+    "p95_ms": 39.042,
+    "max_ms": 44.311
+  },
+  "ui_p95_overhead_ms": 0.048,
+  "targets": {
+    "small_file_capture_p95_under_500ms": true,
+    "live_capture_p95_under_500ms": true,
+    "filesystem_row_p95_under_250ms": true,
+    "ui_p95_overhead_under_50ms": true,
+    "no_watcher_drops": true
+  }
+}

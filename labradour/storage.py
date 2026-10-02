@@ -30,6 +30,7 @@ class BudgetStore:
         self.directory, self.limit = Path(directory), limit
         self.stage_prefix = ".labradour-stage-" + hashlib.sha256(os.fsencode(str(self.directory.resolve()))).hexdigest()[:16] + "-"
         self.health_path = self.directory / "health.json"
+        self.refresh_usage()
         self.check({self.health_path: HEALTH_BYTES})
         if not self.health_path.exists():
             self.health({"status": "ready"})
@@ -38,9 +39,15 @@ class BudgetStore:
         # Count only growth: installation order cannot exceed this bound even
         # when another staged file shrinks. Existing data is never pruned here.
         growth = sum(max(0, size - (p.stat().st_size if p.exists() else 0)) for p, size in sizes.items())
-        usage = file_bytes(self.directory)
+        usage = self.usage
         if usage + growth > self.limit:
             raise BudgetExceeded("storage budget exceeded (%d + %d > %d bytes); recording stopped" % (usage, growth, self.limit))
+
+    def refresh_usage(self):
+        # The exclusive writer owns retained mutations. Scan once on opening,
+        # then account replacements exactly; maintenance refreshes after deletes.
+        self.usage = file_bytes(self.directory)
+        return self.usage
 
     @contextmanager
     def stage(self):
@@ -78,7 +85,10 @@ class BudgetStore:
             destination.parent.mkdir(parents=True, exist_ok=True)
             with source.open("rb") as stream:
                 os.fsync(stream.fileno())
+            previous_size = destination.stat().st_size if destination.exists() else 0
+            new_size = source.stat().st_size
             os.replace(source, destination)
+            self.usage += new_size - previous_size
             self.sync_directory(destination.parent)
 
     def health(self, payload):
@@ -93,7 +103,9 @@ class BudgetStore:
             try:
                 with path.open("rb") as stream:
                     os.fsync(stream.fileno())
+                previous_size = self.health_path.stat().st_size if self.health_path.exists() else 0
                 os.replace(path, self.health_path)
+                self.usage += HEALTH_BYTES - previous_size
                 self.sync_directory(self.directory)
             except OSError:
                 self.health_in_place(raw)
@@ -146,17 +158,28 @@ class BudgetStore:
             for suffix in ("-wal", "-shm"):
                 sidecar = Path(str(destination) + suffix)
                 if sidecar.exists():
+                    size = sidecar.stat().st_size
                     sidecar.unlink()
+                    self.usage -= size
             return result
 
     def checkpoint(self, history, manifest, reason):
         from .snapshots import ScratchHistory
         with self.stage() as stage:
-            shutil.copytree(history.repo, stage / "history.git")
-            candidate = ScratchHistory(stage, session=history.ref.rsplit("/", 1)[-1], resume=True)
+            candidate = ScratchHistory(stage, session=history.ref.rsplit("/", 1)[-1])
+            # Read retained objects without copying history or writing an
+            # alternates file into the installed repository.
+            candidate.env["GIT_ALTERNATE_OBJECT_DIRECTORIES"] = json.dumps(str(history.repo / "objects"), ensure_ascii=False)
+            if history.head:
+                candidate.git("update-ref", candidate.ref, history.head)
+            candidate.head, candidate.tree = history.head, history.tree
+            candidate.blob_ids = dict(history.blob_ids)
             commit = candidate.checkpoint(manifest, reason)
-            files = self.git_files(stage)
+            files = {dst: src for dst, src in self.git_files(stage).items()
+                     if "objects" in dst.relative_to(self.directory).parts or
+                     dst == self.directory / "history.git" / candidate.ref}
             self.install(files)
+            history.blob_ids = candidate.blob_ids
             history.head, history.tree = candidate.head, candidate.tree
             return commit
 

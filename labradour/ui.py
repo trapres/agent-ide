@@ -227,6 +227,11 @@ class Harness:
             else:
                 self.add(window, 1, 1, "Select an action; run the fake agent to emit events")
         footer = "Ctrl-Q quit | Ctrl-] ? help | " + self.notice
+        if self.recorder:
+            metrics = self.recorder.metrics
+            footer += " | scan %.0fms | read %d/cache %d | queue %d" % (
+                metrics.get("scan_ms", 0), metrics.get("read_files", 0), metrics.get("cache_hits", 0),
+                metrics.get("watcher_queue", 0))
         if self.terminal.unsupported:
             footer += " | unsupported VT: %s" % len(self.terminal.unsupported)
         if self.router.prefix:

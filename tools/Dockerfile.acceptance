@@ -1,0 +1,8 @@
+FROM python:3.11-slim
+RUN apt-get update && apt-get install -y --no-install-recommends git ncurses-term \
+    && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+ENV PYTHONPYCACHEPREFIX=/tmp/labradour-pycache TERM=xterm-256color
+WORKDIR /workspace
+CMD ["python", "-m", "unittest", "discover", "-s", "tests", "-v"]

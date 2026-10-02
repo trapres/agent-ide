@@ -1,6 +1,6 @@
-# Phase 1 recorder: initial implementation
+# Phase 1 recorder
 
-Date: 2026-10-02. Status: **recorder, capture policy/storage limits, and crash recovery/retention slices implemented; performance and cross-platform acceptance remain open**.
+Date: 2026-10-02. Status: **all four recorder slices implemented; automated generic recorder acceptance passes on macOS and Linux**.
 
 The user verified that Codex and Claude can run through Labradour's workspace launcher. This supports starting Phase 1; the remaining Phase 0 terminal, provider-hook, and Linux checks continue separately.
 
@@ -8,7 +8,7 @@ The user verified that Codex and Claude can run through Labradour's workspace la
 
 `run --record DIRECTORY` enables a single-writer recorder in a background thread. Ordinary `run` and observation-only `--watch` remain available. The recorder uses a SQLite journal and a private bare Git repository. Journal updates are committed and fsynced in private sibling staging directories, then atomically replace the retained journal after a budget check. Readers open a consistent saved database. Existing WAL recordings are copied into this format with committed facts preserved. An exclusive writer lock prevents simultaneous recordings into one store; workspace identity prevents reuse for a different root.
 
-The launcher forks a paused PTY child before starting watcher threads. It starts observation, captures a baseline and startup reconciliation, then releases the child to execute. Periodic reconciliation runs every two seconds; watcher batches trigger capture on approximately 100 ms worker ticks, subject to scan duration. Shutdown stops the child process group before the final scan.
+The launcher forks a paused PTY child before starting watcher threads. It starts observation, captures a baseline and startup reconciliation, then releases the child to execute. Periodic reconciliation runs every two seconds; watcher batches trigger capture on approximately 20 ms worker ticks, subject to scan duration. Shutdown stops the child process group before the final scan.
 
 The journal stores session lifecycle, filesystem observations, raw provider hook payloads when hooks are enabled, snapshot intent/completion/failure, collector overflow, and recovery records. Existing spool files are ignored at recorder construction so they are not assigned to a new launch. Event IDs deduplicate newly received hook records. Provider event normalization and attribution remain Phase 2 work; recording hooks does not establish their coverage.
 
@@ -32,7 +32,7 @@ A hard 512 MiB retained-file-byte budget covers the journal, Git objects/refs, p
 
 On exhaustion, recording stops, earlier data remains available, and the native agent continues. The footer and `recording-status` report the persistent gap through the health slot. Reusing a store with a smaller-than-current budget is rejected without pruning. A subsequent launch with a larger budget can reconcile the workspace into a new session.
 
-This budget measures regular-file sizes, not allocated filesystem blocks, and excludes sibling staging directories and the hook spool. The spool must be outside the store. Staging temporarily copies the journal/Git history plus new checkpoint objects, requiring additional same-filesystem disk space. Normal success/failure removes staging; recovery and applied retention remove abandoned staging directories with the current store-specific hashed prefix under the writer lock. Legacy stages without an ownership identifier are preserved. No automatic deletion of saved sessions is performed. Explicit whole-session retention is available as described below.
+This budget measures regular-file sizes, not allocated filesystem blocks, and excludes sibling staging directories and the hook spool. The spool must be outside the store. Normal checkpoint staging copies the journal and creates new objects using retained Git objects through a process-local alternate object directory. Repair/retention may copy Git history; these operations require additional same-filesystem disk space. Normal success/failure removes staging; recovery and applied retention remove abandoned staging directories with the current store-specific hashed prefix under the writer lock. Legacy stages without an ownership identifier are preserved. No automatic deletion of saved sessions is performed. Explicit whole-session retention is available as described below.
 
 Observation captures live states rather than every write syscall. Scans are not atomic across the workspace. Rapid intra-tool edits or short-lived files may disappear between captures. Watcher overflow is journaled and triggers reconciliation; reconciliation cannot reconstruct lost intermediate states.
 
@@ -48,15 +48,20 @@ Startup also removes unreferenced loose fragments from interrupted object instal
 
 I/O errors stop further recording, preserve saved journal/ref evidence, and keep the native agent interactive. The recorder attempts a fixed-size in-place health overwrite when staging is unavailable. If that too fails, the UI reports that health could not be persisted; the remaining running session/intent facts are reconciled after storage is restored. This fallback is best effort and may itself be interrupted. Filesystem corruption and power-loss durability are not claimed.
 
-## Verification and remaining work
+## Performance and generic recorder acceptance
 
-Run `python3 -m unittest discover -s tests -v`. **51 tests pass on macOS**, including policy and hard-budget tests alongside the original recorder checks. The recorder tests cover dirty-project index/ref isolation, intermediate edit/revert history, exclusions before object storage, binary bytes, symlinks/executable modes, metadata-only limits, single-writer locking, interrupted intent/ref recovery, actual polling observation, hook deduplication, overflow visibility, baseline launch gating, a recorded curses session and historical diff command, and visible quota failure. Policy/budget checks additionally cover CLI previews and validation, exclusion-before-read/watch/object-storage, metadata-only selection, deterministic scan-limit omissions, disabling optional defaults, rejection of entire Git batches, journal exhaustion, installation-by-installation size bounds, budget increases after exhaustion, legacy WAL migration, payload truncation, and preventing an in-store hook spool. Recovery/retention tests add real abrupt exits at intent, scan, object-install, ref-install, and completion boundaries; SIGKILL; partial repository initialization; interrupted session-end status updates; disk-full staging/ref-sync failures; unreadable capture retention; preview/apply; interrupted prune recovery at journal/ref/GC boundaries; packed refs/objects; active-writer exclusion; store-specific stage cleanup; and cross-session journal evidence protection.
+The optimized recorder reuses stat-verified captured bytes, batches new blob hashing and journal observations, stages checkpoints without copying existing Git history, and skips unchanged periodic markers. Hard budget accounting tracks owned file replacements under the writer lock and refreshes after maintenance. A preview scan cannot advance the content cache without its corresponding immutable capture.
 
-Still open before accepting the complete Phase 1 milestone:
+The 1,000-file/20-iteration probe meets the proposed local latency targets on macOS and Linux. A 5,000-file macOS probe also measures a one-file checkpoint below 366 ms at p95. Full evidence, latency methodology, scalability limits, acceptance scenarios, and Linux reproduction are documented in [RecorderAcceptance.md](RecorderAcceptance.md). The generic Phase 1 recorder is accepted in this measured scope; native provider lifecycle coverage remains the next milestone.
 
-- Larger workspace performance measurements and incremental capture optimizations.
+## Verification and follow-ups
+
+Run `python3 -m unittest discover -s tests -v`. **57 tests pass on both macOS and Linux**, including policy and hard-budget tests alongside the original recorder checks. The recorder tests cover dirty-project index/ref isolation, intermediate edit/revert history, exclusions before object storage, binary bytes, symlinks/executable modes, metadata-only limits, single-writer locking, interrupted intent/ref recovery, actual polling observation, hook deduplication, overflow visibility, baseline launch gating, a recorded curses session and historical diff command, and visible quota failure. Policy/budget checks additionally cover CLI previews and validation, exclusion-before-read/watch/object-storage, metadata-only selection, deterministic scan-limit omissions, disabling optional defaults, rejection of entire Git batches, journal exhaustion, installation-by-installation size bounds, budget increases after exhaustion, legacy WAL migration, payload truncation, and preventing an in-store hook spool. Recovery/retention tests add real abrupt exits at intent, scan, object-install, ref-install, and completion boundaries; SIGKILL; partial repository initialization; interrupted session-end status updates; disk-full staging/ref-sync failures; unreadable capture retention; preview/apply; interrupted prune recovery at journal/ref/GC boundaries; packed refs/objects; active-writer exclusion; store-specific stage cleanup; and cross-session journal evidence protection.
+
+Follow-ups beyond the accepted generic recorder scope:
+
 - Power-loss/corruption experiments and physical filesystem fault testing beyond deterministic error injection.
 - Pack compaction and age-based/automatic retention if needed.
-- Linux verification and continued native-provider terminal acceptance.
+- Continued human native-provider terminal acceptance and provider-specific integration (Phase 2).
 
 The authenticated collector protocol, synchronous provider-boundary snapshots, normalized provider lifecycle coverage, and native hook composition are subsequent adapter work. Saved-session navigation in curses and specialized visualizers belong to the review MVP. [UIGuide.md](../UIGuide.md) describes current navigation and the planned views.

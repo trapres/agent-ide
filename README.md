@@ -2,7 +2,9 @@
 
 An ncurses IDE for watching CLI agents work. Architecture: [AgentIDEPlan.md](AgentIDEPlan.md). UI specification: [AgentUI.md](AgentUI.md). User controls and review workflow: [UIGuide.md](UIGuide.md).
 
-The repository contains the **Phase 0 harness and an initial Phase 1 durable recorder**. The full review MVP remains later work. It requires Python 3.9+, Git, pyte, watchdog, and wcwidth. Dependency versions are in [requirements.txt](requirements.txt); use `python3 -m pip install -r requirements.txt` with the interpreter you will launch. The tested macOS interpreter is Python 3.9.6; Linux verification remains pending.
+For a hands-on walkthrough of current behavior, recorder checks, and features still planned, see [Phase 1 manual testing guide](docs/Phase1TestGuide.md).
+
+The repository contains the **Phase 0 harness and the accepted Phase 1 generic recorder**. The full review MVP remains later work. It requires Python 3.9+, Git, pyte, watchdog, and wcwidth. Dependency versions are in [requirements.txt](requirements.txt); use `python3 -m pip install -r requirements.txt` with the interpreter you will launch. Automated acceptance passes on macOS/Python 3.9.6 and Linux arm64/Python 3.11.17 in Docker. Measurements and reproduction commands are in [Recorder acceptance](docs/RecorderAcceptance.md).
 
 Start the deterministic fake agent from the repository root:
 
@@ -90,6 +92,7 @@ Run verification and probes:
 
 ```sh
 python3 -m unittest discover -s tests -v
+python3 tools/performance_probe.py --files 1000 --iterations 20
 python3 -m labradour doctor
 python3 -m labradour snapshot-fixture /tmp/labradour-new-snapshot-fixture
 python3 -m labradour watch-fixture /tmp/labradour-new-watch-fixture

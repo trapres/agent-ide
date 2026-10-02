@@ -1,0 +1,30 @@
+{
+  "platform": "macOS-26.7.1-arm64-arm-64bit",
+  "python": "3.9.6",
+  "files": 5000,
+  "iterations": 10,
+  "file_content_bytes": 2048,
+  "startup_ms": 55.764,
+  "baseline_ms": 5322.105,
+  "unchanged_scan": {
+    "samples": 10,
+    "median_ms": 128.518,
+    "p95_ms": 133.451,
+    "max_ms": 133.451
+  },
+  "small_file_capture": {
+    "samples": 10,
+    "median_ms": 338.363,
+    "p95_ms": 365.491,
+    "max_ms": 365.491
+  },
+  "journal_64_events": {
+    "samples": 10,
+    "median_ms": 2.934,
+    "p95_ms": 3.603,
+    "max_ms": 3.603
+  },
+  "store_bytes_initial": 760894,
+  "store_bytes_final": 1226802,
+  "scope": "direct recorder timings; no live/UI measurements"
+}

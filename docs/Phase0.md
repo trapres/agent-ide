@@ -1,6 +1,6 @@
 # Phase 0 feasibility results
 
-Date: 2026-10-02. Status: **local implementation and automated feasibility checks pass; native-provider and Linux acceptance remain open**.
+Date: 2026-10-02. Status: **automated macOS/Linux feasibility checks pass; full native-provider acceptance remains open**.
 
 ## Implemented probes
 
@@ -22,7 +22,7 @@ Native kqueue and polling watcher fixtures each observed create, modify, rename,
 
 Snapshot tests verify historical intermediate changes with zero final net diff, byte preservation for binary/CRLF content, tab/newline filenames, symlink/executable modes, identical-tree checkpoint reuse, path validation, and isolation from an inherited project index.
 
-These are macOS automated checks; Linux and a human visual review remain unverified. Synthetic terminal assertions do not prove that the entire Codex/Claude native interface renders correctly. The quarter-screen view currently shows event payload cards; full operation visualizers and historical file selection belong to Phase 4.
+These initial results were macOS automated checks. Linux subsequently passed the complete suite as noted below; human native-provider visual acceptance remains open. Synthetic terminal assertions do not prove that the entire Codex/Claude native interface renders correctly. The quarter-screen view currently shows event payload cards; full operation visualizers and historical file selection belong to Phase 4.
 
 ## Local native CLI measurements
 
@@ -72,10 +72,14 @@ This confirms a usable export bridge. It does not yet validate browser/Tauri ren
 
 The user subsequently verified that both Codex and Claude run through Labradour's workspace launcher. This resolves the basic native-launch blocker and supports beginning Phase 1. It does not establish the complete terminal checklist, measured hook delivery, or Linux acceptance. Phase 1 progress is recorded in [Phase1.md](Phase1.md).
 
+## Linux verification update
+
+Phase 1's final acceptance suite passes all 57 tests on Linux arm64/Python 3.11.17 in a disposable Docker environment, including native inotify observation and the core PTY/curses/layout/snapshot tests. See [Recorder acceptance](RecorderAcceptance.md). This completes the automated Linux feasibility checks; human native-provider/hook coverage remains separate.
+
 ## Remaining Phase 0 acceptance gates
 
 1. Run authenticated Codex and Claude sessions through the harness outside the restrictive execution environment; visually verify input, multiline paste, colors, cursor, alternate screens, resize/mirror, approvals, and interruption.
 2. Measure provider-delivered hook events and existing-hook composition/trust behavior, updating the coverage table by event category.
-3. Repeat the core PTY/layout/watcher/snapshot checks on Linux. A local Docker executable is present, but its daemon is not running, so it could not provide a Linux test environment here.
+3. **Completed in Phase 1:** core PTY/layout/watcher/snapshot checks on Linux; evidence is linked above.
 
-The durable recorder, journal, retention/recovery, saved UI preferences, full visualizer registry, and arbitrary layouts are later phases. The dependency-related work and local feasibility implementation are complete; full Phase 0 acceptance still depends on the native-provider and Linux checks above.
+The durable recorder, journal, retention/recovery, saved UI preferences, full visualizer registry, and arbitrary layouts are later phases. The dependency-related work and local feasibility implementation are complete; full Phase 0 acceptance still depends on the native-provider checks above.

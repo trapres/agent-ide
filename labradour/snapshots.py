@@ -1,4 +1,6 @@
 """Private Git history built from immutable manifests."""
+import hashlib
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -8,6 +10,7 @@ import tempfile
 class ScratchHistory:
     def __init__(self, directory, session="fixture", resume=False, storage=None):
         self.storage = storage
+        self.blob_ids = {}
         self.directory = Path(directory).resolve()
         self.directory.mkdir(parents=True, exist_ok=True)
         self.repo = self.directory / "history.git"
@@ -38,7 +41,7 @@ class ScratchHistory:
         """manifest: relative path -> (Git mode string, immutable bytes)."""
         if self.storage:
             return self.storage.checkpoint(self, manifest, reason)
-        entries = []
+        entries, contents = [], {}
         for path, (mode, content) in sorted(manifest.items()):
             parts = path.split("/")
             if (not path or path.startswith("/") or "\0" in path or
@@ -46,13 +49,30 @@ class ScratchHistory:
                 raise ValueError("invalid manifest path: %r" % path)
             if mode not in ("100644", "100755", "120000"):
                 raise ValueError("unsupported mode")
-            oid = self.git("hash-object", "-w", "--stdin", data=content).strip()
-            entries.append(mode.encode() + b" " + oid + b"\t" + os.fsencode(path) + b"\0")
+            digest = hashlib.sha256(content).digest()
+            contents[digest] = content
+            entries.append((path, mode, digest))
         with tempfile.TemporaryDirectory(dir=str(self.directory)) as temporary:
-            env = dict(self.env, GIT_INDEX_FILE=str(Path(temporary) / "index"))
+            temporary = Path(temporary)
+            pending = [digest for digest in contents if digest not in self.blob_ids]
+            paths = []
+            for index, digest in enumerate(pending):
+                file = temporary / str(index)
+                file.write_bytes(contents[digest])
+                paths.append(json.dumps(str(file), ensure_ascii=False).encode() + b"\n")
+            if paths:
+                oids = self.git("hash-object", "-w", "--no-filters", "--stdin-paths", data=b"".join(paths)).splitlines()
+                if len(oids) != len(pending):
+                    raise RuntimeError("Git returned an incomplete blob batch")
+                self.blob_ids.update(zip(pending, oids))
+            env = dict(self.env, GIT_INDEX_FILE=str(temporary / "index"))
             self.git("read-tree", "--empty", env=env)
-            self.git("update-index", "-z", "--index-info", data=b"".join(entries), env=env)
+            index_entries = [mode.encode() + b" " + self.blob_ids[digest] + b"\t" + os.fsencode(path) + b"\0"
+                             for path, mode, digest in entries]
+            self.git("update-index", "-z", "--index-info", data=b"".join(index_entries), env=env)
             tree = self.git("write-tree", env=env).decode().strip()
+        # Bound the cache to contents of the current manifest.
+        self.blob_ids = {digest: self.blob_ids[digest] for digest in contents}
         if tree == self.tree:
             return self.head
         args = ["commit-tree", tree]

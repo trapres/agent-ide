@@ -133,6 +133,7 @@ def resume_prune(storage):
             policy.unlink()
     storage.sync_directory(storage.directory)
     reclaimed = reclaim_loose_objects(storage) if (storage.directory / "history.git").exists() else {}
+    storage.refresh_usage()
     result = {"status": "pruned", "removed_sessions": targets, "operation_id": operation["operation_id"],
               "bytes_after": file_bytes(storage.directory), "budget_bytes": storage.limit,
               "recording_health": operation.get("recording_health"), **reclaimed}

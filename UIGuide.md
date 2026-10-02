@@ -65,7 +65,7 @@ Files above the file/scan limit and metadata-only matches have omission reasons 
 
 ## Storage exhaustion
 
-The hard budget applies to the sum of regular-file bytes inside the recording directory, including journal, Git history, policy files, and a reserved health record. The default is 512MiB; the minimum configurable budget is 64KiB. Filesystem allocation overhead, temporary staging, and the hook spool are separate from this budget. Staging can temporarily duplicate the journal/Git history plus a new checkpoint and needs extra space on the same filesystem. Successful and rejected writes clean it up. On the next launch or applied prune, Labradour removes abandoned staging directories identified as belonging to that store. Older staging directories without a store identifier remain untouched.
+The hard budget applies to the sum of regular-file bytes inside the recording directory, including journal, Git history, policy files, and a reserved health record. The default is 512MiB; the minimum configurable budget is 64KiB. Filesystem allocation overhead, temporary staging, and the hook spool are separate from this budget. Normal capture staging copies the journal and materializes newly hashed content/objects; it reads retained Git objects without copying the whole repository. Initialization repair and retention can stage a repository copy. These operations need extra space on the same filesystem. Successful and rejected writes clean it up. On the next launch or applied prune, Labradour removes abandoned staging directories identified as belonging to that store. Older staging directories without a store identifier remain untouched.
 
 If a write cannot fit, Labradour displays **RECORDING STOPPED: storage budget; agent continues**. Earlier history remains available; later activity/content is not recorded. A fixed-size health record preserves the reason even when the journal has no room. Inspect it after exit:
 
@@ -111,7 +111,7 @@ Pruning is resumable: the health record holds its intent, the journal is pruned 
 +-------------------------+-------------------------+
 ```
 
-The Agent takes half the screen. Activity and Visualization share the other half. The title bar names the focused pane and shows whether selection follows live activity. The footer shows help, recording status, and coverage notices.
+The Agent takes half the screen. Activity and Visualization share the other half. The title bar names the focused pane and shows whether selection follows live activity. The footer shows help, recording status, and coverage notices. With recording enabled it also reports the latest scan duration, files read/reused from cache, and watcher queue depth when screen space permits. Checkpoint details include scan/capture preparation metrics.
 
 The **Agent** pane accepts normal typing, slash commands, paste, approvals, and Ctrl-C. Input goes to the agent while this pane has focus, except Labradour's reserved controls below.
 
@@ -166,6 +166,8 @@ python3 -m labradour diff /path/to/labradour-recording BEFORE_COMMIT AFTER_COMMI
 ```
 
 Copy a session ID from the first command, then full `commit` IDs from `snapshot.completed` records. Compare adjacent checkpoints to see intermediate edits, including edits later reverted. Comparing only the baseline and final checkpoint can produce an empty diff even when work occurred between them.
+
+Metadata is reconciled every two seconds. Unchanged files reuse captured bytes after stat checks; dirty paths, startup, overflow, shutdown, and every fifteenth capture attempt trigger fresh reads. Unchanged periodic reconciliations reuse the existing checkpoint without adding detail cards.
 
 Recording captures observed states rather than every write. Short-lived files and rapid changes between scans may be missed. `partial` captures, overflow events, and failed checkpoints identify gaps; an interrupted session is preserved and a later launch reconciles the current workspace into a new session.
 
