@@ -32,7 +32,7 @@ def clip(text, width):
 
 class Harness:
     def __init__(self, command, workspace, events, side="left", agent_fraction=.5, activity_fraction=.5,
-                 watch=False, watch_backend="native", recording=None):
+                 watch=False, watch_backend="native", recording=None, policy=None):
         self.command, self.workspace, self.events = command, workspace, Path(events)
         self.side = side
         self.agent_fraction, self.activity_fraction = agent_fraction, activity_fraction
@@ -49,6 +49,9 @@ class Harness:
         self.watcher = None
         self.recording = recording
         self.recorder = None
+        from .policy import CapturePolicy
+        self.policy = policy or CapturePolicy()
+        self.policy_view = bool(recording)
         self.pairs = {}
         self.notice = "pyte terminal | provider coverage unverified"
         self.running = True
@@ -112,10 +115,14 @@ class Harness:
                     self.agent_fraction = min(.7, max(.3, self.agent_fraction + (.05 if key == "+" else -.05)))
                 else:
                     self.activity_fraction = min(.7, max(.3, self.activity_fraction + (.05 if key == "]" else -.05)))
+            elif key == "p":
+                self.policy_view = not self.policy_view
+                self.focus = "visualization"
+                self.scroll = 0
             elif key == "q":
                 self.running = False
             else:
-                self.notice = "Prefix: a/l/v focus | Tab cycle | m mirror | z maximize | +/- width | [/] height | q stop"
+                self.notice = "Prefix: a/l/v focus | Tab cycle | m mirror | z maximize | p policy | +/- width | [/] height | q stop"
             return
         if kind == "literal":
             self.child.send(token)
@@ -129,6 +136,7 @@ class Harness:
             self.child.send(token)
         elif kind == "key":
             if self.focus == "activity":
+                self.policy_view = False
                 if token in (b"j", b"\x1b[B"):
                     self.selected = min(len(self.actions) - 1, self.selected + 1) if self.actions else 0
                     self.follow = False
@@ -202,6 +210,12 @@ class Harness:
                              curses.A_REVERSE if index == self.selected else 0)
                 if not self.actions:
                     self.add(window, 1, 1, "No hook events; native tool coverage unverified")
+            elif self.policy_view:
+                lines = ["Effective capture policy", "Recording enabled" if self.recording else "Recording disabled"]
+                lines += json.dumps(self.policy.describe(self.workspace, [p for p in (self.recording, self.events) if p]),
+                                    ensure_ascii=False, indent=2).splitlines()
+                for y, line in enumerate(lines[self.scroll:self.scroll + h]):
+                    self.add(window, y + 1, 1, line)
             elif self.actions:
                 p = self.actions[self.selected]["payload"]
                 lines = ["View: " + p.get("operation", "tool/event card"),
@@ -216,7 +230,7 @@ class Harness:
         if self.terminal.unsupported:
             footer += " | unsupported VT: %s" % len(self.terminal.unsupported)
         if self.router.prefix:
-            footer = "Ctrl-Q quit | PREFIX: a/l/v focus | m mirror | z maximize | +/- width | [/] height | q quit"
+            footer = "Ctrl-Q quit | PREFIX: a/l/v focus | m mirror | z maximize | p policy | +/- width | [/] height | q quit"
         self.add(screen, rows - 1, 0, footer)
         if "agent" in geometry and self.focus == "agent" and self.terminal.cursor_visible:
             rect = geometry["agent"]
@@ -255,8 +269,10 @@ class Harness:
         try:
             if self.recording:
                 from .recorder import Recorder
+                self.notice = "Capture policy shown in Visualization | Ctrl-] p toggles policy"
+                self.paint(screen, geometry)
                 self.recorder = Recorder(self.workspace, self.recording, excluded=[self.events],
-                                         backend=self.watch_backend, events=self.events)
+                                         backend=self.watch_backend, events=self.events, policy=self.policy)
                 self.recorder.start()
                 self.child.release()
             elif self.watch_enabled:
@@ -284,7 +300,8 @@ class Harness:
                 self.child.flush()
                 self.collect()
                 if self.child.poll() is not None:
-                    self.notice = "Agent exited %s; review remains open. Ctrl-Q quits" % self.child.status
+                    self.notice = ((self.recorder.notice + " | ") if self.recorder else "") + (
+                        "Agent exited %s; review remains open. Ctrl-Q quits" % self.child.status)
                 for kind, token in self.router.expire():
                     self.handle(kind, token)
                 self.paint(screen, geometry)

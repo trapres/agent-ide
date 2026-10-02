@@ -30,6 +30,51 @@ python3 -m labradour run --demo --watch
 
 Type `run` in the Agent pane for sample activity, `size` for terminal dimensions, or `colors` for color samples. Add `--record /path/to/demo-recording` to try saved checkpoints. Each demo has a new temporary workspace, so use a fresh recording directory for each demo launch.
 
+## Choose and inspect capture rules
+
+Preview the effective rules without launching an agent or creating a recording:
+
+```sh
+python3 -m labradour policy --workspace /path/to/project \
+  --record /path/to/labradour-recording \
+  --exclude 'private/**' --metadata-only 'assets/**' \
+  --max-file-bytes 4MiB --max-capture-bytes 32MiB --storage-budget 256MiB
+```
+
+Use the same options with `run --record ...` to apply them. Repeat `--exclude` and `--metadata-only` for additional rules. Patterns match workspace-relative paths and their ancestors, case-sensitively; `*` can match across directory separators. Use `private` to exclude that entire subtree, or `*.key` for matching filenames anywhere below the root. Quote patterns so your shell does not expand them.
+
+For reusable rules, save a JSON file and pass `--capture-policy /path/to/capture.json`:
+
+```json
+{
+  "schema_version": 1,
+  "exclude": ["private", "*.key"],
+  "metadata_only": ["assets/**"],
+  "max_file_bytes": 4194304,
+  "max_capture_bytes": 33554432,
+  "storage_budget_bytes": 268435456,
+  "max_event_bytes": 1048576
+}
+```
+
+JSON limits use positive integer byte counts. CLI limits also accept `KiB`, `MiB`, and `GiB`. CLI size options override file values; CLI patterns extend the file's pattern lists. Invalid fields or limits fail before launching. Policy options on `run` require `--record`.
+
+Default exclusions remain active unless you explicitly supply `--no-default-exclusions` or set `"use_default_exclusions": false` in the JSON file. Git administration, recorder/staging data, and the active hook spool remain excluded. The effective policy is printed before recording, initially shown in Visualization, and saved as a per-session `capture-policy-SESSION_ID.json` in the recording directory. Press **Ctrl-] then `p`** to toggle its view during a session.
+
+Files above the file/scan limit and metadata-only matches have omission reasons in checkpoint details. `partial capture` in the footer reports omission and read-error counts. A previously captured file omitted from a later snapshot is labeled `file.omitted`, not `file.delete`; plain Git diffs can still show its absence as a deletion, so check snapshot metadata when reviewing a partial checkpoint. Captures process directories/files in sorted traversal order to make scan-limit choices repeatable.
+
+## Storage exhaustion
+
+The hard budget applies to the sum of regular-file bytes inside the recording directory, including journal, Git history, policy files, and a reserved health record. The default is 512MiB; the minimum configurable budget is 64KiB. Filesystem allocation overhead, temporary staging, and the hook spool are separate from this budget. Staging can temporarily duplicate the journal/Git history plus a new checkpoint and needs extra space on the same filesystem. Successful and rejected writes clean it up; a process crash can leave private `.labradour-stage-*` directories for later recovery/cleanup work.
+
+If a write cannot fit, Labradour displays **RECORDING STOPPED: storage budget; agent continues**. Earlier history remains available; later activity/content is not recorded. A fixed-size health record preserves the reason even when the journal has no room. Inspect it after exit:
+
+```sh
+python3 -m labradour recording-status /path/to/labradour-recording
+```
+
+Restart with a larger `--storage-budget` or choose a fresh recording directory. There is no automatic pruning in this slice. A budget smaller than the existing store is rejected without deleting saved history. The hook spool must be outside the recording directory so external hook writes cannot bypass the store's budget.
+
 ## The three windows
 
 ```text
@@ -61,6 +106,7 @@ Press **Ctrl-]**, release it, then press the command key within two seconds. For
 | Ctrl-] then `v` | Focus Visualization |
 | Ctrl-] then Tab | Cycle through the three panes |
 | Ctrl-] then `?` | Show prefix help in the footer |
+| Ctrl-] then `p` | Toggle effective capture policy in Visualization |
 | Ctrl-] twice | Send a literal Ctrl-] to the agent |
 | `j` / Down in Activity | Select the next event; pause live follow |
 | `k` / Up in Activity | Select the previous event; pause live follow |

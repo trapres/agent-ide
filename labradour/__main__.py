@@ -10,6 +10,27 @@ import tempfile
 
 from .hooks import configuration, toml_value
 from .snapshots import fixture
+from .policy import byte_size, load_policy
+
+
+def policy_arguments(parser):
+    parser.add_argument("--capture-policy", type=Path, help="JSON capture policy file")
+    parser.add_argument("--exclude", action="append", help="Additional workspace-relative exclusion glob (repeatable)")
+    parser.add_argument("--metadata-only", action="append", help="Record metadata without contents for matching paths")
+    parser.add_argument("--no-default-exclusions", action="store_false", dest="use_default_exclusions", default=None,
+                        help="Disable optional default exclusions; Git and recorder internals remain excluded")
+    for option, name, help_text in (
+            ("--max-file-bytes", "max_file_bytes", "Maximum captured bytes per file"),
+            ("--max-capture-bytes", "max_capture_bytes", "Maximum content bytes per scan"),
+            ("--storage-budget", "storage_budget_bytes", "Hard retained recording-directory budget (minimum 64KiB)"),
+            ("--max-event-bytes", "max_event_bytes", "Maximum journal event size (1KiB to 1MiB)")):
+        parser.add_argument(option, dest=name, type=byte_size, help=help_text + "; accepts sizes such as 8MiB")
+
+
+def policy_from_args(args):
+    return load_policy(args.capture_policy, **{name: getattr(args, name) for name in
+                       ("exclude", "metadata_only", "use_default_exclusions", "max_file_bytes",
+                        "max_capture_bytes", "storage_budget_bytes", "max_event_bytes")})
 
 
 def main():
@@ -26,7 +47,15 @@ def main():
     run.add_argument("--activity-height", type=float, default=.5)
     run.add_argument("--watch", action="store_true", help="Display watchdog filesystem observations (no content capture)")
     run.add_argument("--watch-backend", choices=["native", "polling"], default="native")
+    policy_arguments(run)
     run.add_argument("command", nargs=argparse.REMAINDER)
+    preview = commands.add_parser("policy", help="Preview effective capture policy without recording or launching")
+    preview.add_argument("--workspace", type=Path, default=Path.cwd())
+    preview.add_argument("--record", type=Path, help="Include the recording path in the preview")
+    preview.add_argument("--events", type=Path, help="Include the hook spool path in the preview")
+    policy_arguments(preview)
+    health = commands.add_parser("recording-status", help="Show persistent recording health, including storage exhaustion")
+    health.add_argument("directory", type=Path)
     history = commands.add_parser("history", help="List saved sessions or print a session journal")
     history.add_argument("directory", type=Path)
     history.add_argument("--session")
@@ -43,7 +72,16 @@ def main():
     hooks.add_argument("provider", choices=["codex", "claude"])
     commands.add_parser("doctor", help="List prerequisites without reading credentials")
     args = parser.parse_args()
-    if args.mode == "history":
+    if args.mode == "policy":
+        try:
+            policy = policy_from_args(args)
+        except (ValueError, OSError) as exc:
+            parser.error(str(exc))
+        print(json.dumps(policy.describe(args.workspace, [p for p in (args.record, args.events) if p]), indent=2))
+    elif args.mode == "recording-status":
+        from .storage import read_health
+        print(json.dumps(read_health(args.directory), indent=2))
+    elif args.mode == "history":
         from .recorder import read_history
         print(json.dumps(read_history(args.directory, args.session), indent=2))
     elif args.mode == "diff":
@@ -79,6 +117,14 @@ def main():
                 print("%s: missing; install requirements.txt with this Python interpreter" % package)
         print("Terminal backend: pyte with xterm extensions")
     else:
+        try:
+            policy = policy_from_args(args)
+        except (ValueError, OSError) as exc:
+            parser.error(str(exc))
+        if not args.record and any(getattr(args, name) is not None for name in
+                ("capture_policy", "exclude", "metadata_only", "use_default_exclusions", "max_file_bytes",
+                 "max_capture_bytes", "storage_budget_bytes", "max_event_bytes")):
+            parser.error("capture policy options require --record; use policy to preview them")
         if not sys.stdin.isatty() or not sys.stdout.isatty():
             parser.error("run requires an interactive terminal")
         command = args.command
@@ -109,10 +155,17 @@ def main():
                     command = [command[0], "--settings", str(settings), *command[1:]]
                 else:
                     command = [command[0], "--no-daemon", "-c", "hooks=" + toml_value(config["hooks"]), *command[1:]]
+            if args.record:
+                print("Labradour effective capture policy:", file=sys.stderr)
+                print(json.dumps(policy.describe(workspace, [args.record, events]), indent=2), file=sys.stderr)
             from .ui import Harness
             harness = Harness(command, workspace, events, args.side, args.agent_width, args.activity_height,
-                              args.watch, args.watch_backend, args.record)
-            curses.wrapper(harness.run)
+                              args.watch, args.watch_backend, args.record, policy)
+            from .storage import BudgetExceeded
+            try:
+                curses.wrapper(harness.run)
+            except (BudgetExceeded, ValueError) as exc:
+                parser.exit(2, "Labradour: " + str(exc) + "\n")
 
 
 if __name__ == "__main__":

@@ -6,7 +6,8 @@ import tempfile
 
 
 class ScratchHistory:
-    def __init__(self, directory, session="fixture", resume=False):
+    def __init__(self, directory, session="fixture", resume=False, storage=None):
+        self.storage = storage
         self.directory = Path(directory).resolve()
         self.directory.mkdir(parents=True, exist_ok=True)
         self.repo = self.directory / "history.git"
@@ -35,6 +36,8 @@ class ScratchHistory:
 
     def checkpoint(self, manifest, reason):
         """manifest: relative path -> (Git mode string, immutable bytes)."""
+        if self.storage:
+            return self.storage.checkpoint(self, manifest, reason)
         entries = []
         for path, (mode, content) in sorted(manifest.items()):
             parts = path.split("/")

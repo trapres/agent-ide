@@ -13,8 +13,9 @@ from watchdog.observers.polling import PollingObserver
 
 
 class WorkspaceWatch(FileSystemEventHandler):
-    def __init__(self, workspace, excluded=(), backend="native", capacity=4096):
+    def __init__(self, workspace, excluded=(), backend="native", capacity=4096, included=None):
         self.root = Path(workspace).resolve()
+        self.policy_included = included
         self.excluded = [Path(p).resolve() for p in excluded]
         self.events = queue.Queue(maxsize=capacity)
         self.dropped = 0
@@ -38,8 +39,10 @@ class WorkspaceWatch(FileSystemEventHandler):
             relative = absolute.relative_to(self.root)
         except ValueError:
             return None
-        if not relative.parts or any(p in (".git", ".venv", "__pycache__", ".agentide-spike")
-                                     for p in relative.parts):
+        internal = (".git",) if self.policy_included else (".git", ".venv", "__pycache__", ".agentide-spike")
+        if not relative.parts or any(p in internal for p in relative.parts):
+            return None
+        if self.policy_included and not self.policy_included(relative):
             return None
         if any(absolute == p or p in absolute.parents for p in self.excluded):
             return None

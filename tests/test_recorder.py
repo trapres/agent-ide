@@ -11,6 +11,7 @@ import unittest
 from labradour.recorder import Recorder, read_history
 from labradour.pty_process import PtyProcess
 from labradour.hooks import emit
+from labradour.storage import file_bytes, read_health
 
 
 class RecorderTests(unittest.TestCase):
@@ -202,13 +203,14 @@ class RecorderTests(unittest.TestCase):
             try:
                 recorder.capture("baseline")
                 before = recorder.history.head
-                recorder.quota = 1
-                (workspace / "a").write_text("not captured")
+                recorder.storage.limit = file_bytes(recorder.directory) + 4096
+                (workspace / "a").write_bytes(os.urandom(32768))
                 recorder.capture("mutation")
                 self.assertEqual(recorder.history.head, before)
-                self.assertIn("quota", recorder.notice)
+                self.assertIn("storage budget", recorder.notice)
                 events = read_history(recorder.directory, recorder.session)
-                self.assertEqual(events[-1]["kind"], "snapshot.failed")
+                self.assertEqual(read_health(recorder.directory)["status"], "storage-limit")
+                self.assertLessEqual(file_bytes(recorder.directory), recorder.storage.limit)
             finally:
                 recorder.close()
 

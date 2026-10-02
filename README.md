@@ -39,6 +39,7 @@ The default native watchdog backend is kqueue on macOS and the platform default 
 | `Ctrl-]` then Tab | Cycle focus |
 | `Ctrl-]` then `m` | Mirror the agent side |
 | `Ctrl-]` then `z` | Maximize/restore focused pane |
+| `Ctrl-]` then `p` | Toggle effective capture policy in Visualization |
 | `Ctrl-]` then `b` / `n` | Page back through terminal history / return to live terminal |
 | `Ctrl-]` then `+` / `-` | Change agent width |
 | `Ctrl-]` then `]` / `[` | Change activity height |
@@ -61,7 +62,18 @@ python3 -m labradour diff /path/to/private-recording BEFORE_COMMIT AFTER_COMMIT
 
 `--record` includes filesystem watching and waits for baseline capture before starting the agent. Reuse the recording directory for additional sessions in the same workspace. It preserves intermediate changes in private Git history without modifying the project's index or refs. Full checkpoint commit IDs are available in `snapshot.completed` journal records. The live Visualization pane currently shows detail cards; use `diff` for historical source comparisons.
 
-Capture excludes Git administration, recorder data, common credential directories, `.env` files, and dependency/build directories. Large files are metadata-only; recording has a soft content quota. See [Phase 1 implementation and limits](docs/Phase1.md) before recording a workspace, and [UIGuide.md](UIGuide.md) for navigation.
+Capture excludes Git administration, recorder data, common credential directories, `.env` files, and dependency/build directories. Large files are metadata-only; recording enforces a hard retained-file-byte budget. Temporary staging requires separate disk space. See [Phase 1 implementation and limits](docs/Phase1.md) before recording a workspace, and [UIGuide.md](UIGuide.md) for navigation.
+
+Preview or customize capture policy:
+
+```sh
+python3 -m labradour policy --workspace /path/to/project --exclude private --storage-budget 256MiB
+python3 -m labradour run --workspace /path/to/project --record /path/to/private-recording \
+  --exclude private --metadata-only 'assets/**' --max-file-bytes 4MiB --storage-budget 256MiB -- codex
+python3 -m labradour recording-status /path/to/private-recording
+```
+
+Use `--capture-policy FILE` for reusable JSON rules. Size options override file values; repeated exclusion/metadata patterns extend them. The effective policy is printed before recording and available with **Ctrl-] then p**. Budget exhaustion stops recording while the agent continues, preserves saved history, and reports the reason through a reserved health record. [UIGuide.md](UIGuide.md) documents policy examples and budget scope.
 
 Default geometry is half-width Agent plus stacked quarter-screen review panes. Terminals smaller than 100×28 use the focused pane full screen. Session layout adjustments are not yet persisted. Arbitrary arrangements are specified in Phase 3.
 
