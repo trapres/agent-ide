@@ -1,4 +1,4 @@
-# Agent IDE implementation plan
+# Labradour implementation plan
 
 Date: 2026-10-02. Status: proposed architecture; no implementation yet.
 
@@ -41,11 +41,11 @@ Current Codex documentation exposes prompt, tool, and session hooks. Local tool 
 
 Claude Code provides tool and lifecycle hooks, including `PreToolUse`, `PostToolUse`, and `PostToolUseFailure`. Rejected calls do not all traverse these hooks; permission denials and validation failures need separate handling where available. Use prompt/session hooks for boundaries and correlate records by provider call IDs. [Claude Code hooks](https://code.claude.com/docs/en/hooks)
 
-Hook handlers should send JSON to a local authenticated collector, wait only for a durable acknowledgement, and return a successful empty response. They must compose with existing hooks without replacing them. Prefer supported launch-scoped configuration; otherwise provide an explicit setup operation that adds and can remove only AgentIDE's configuration entries. Check provider trust requirements during setup. Never silently rewrite global settings.
+Hook handlers should send JSON to a local authenticated collector, wait only for a durable acknowledgement, and return a successful empty response. They must compose with existing hooks without replacing them. Prefer supported launch-scoped configuration; otherwise provide an explicit setup operation that adds and can remove only Labradour's configuration entries. Check provider trust requirements during setup. Never silently rewrite global settings.
 
 ### Structured mode — later, optional
 
-In this mode AgentIDE renders the conversation and owns prompt submission; it does not show the provider's native TUI.
+In this mode Labradour renders the conversation and owns prompt submission; it does not show the provider's native TUI.
 
 Codex's app-server is the preferred structured backend: initialize the connection, start/resume a thread, start turns, consume item lifecycle/output notifications, and answer approval requests in the IDE. Relevant items include command execution, file changes, MCP calls, web search, and collaboration. Preserve provider IDs and distinguish proposed edits from completed edits. This is a separate backend, not a second observer attached to the native CLI process. [Codex app-server](https://learn.chatgpt.com/docs/app-server)
 
@@ -61,8 +61,8 @@ Each adapter implements executable/version discovery, launch configuration, even
 | --- | --- | --- | --- | --- |
 | Claude native | PTY | Hooks; optional transcript reconciliation | Provider hooks | Supported hook events, version dependent |
 | Codex native | PTY | Hooks; optional transcript reconciliation | Provider hooks | Local tool paths; hosted coverage incomplete |
-| Codex structured | AgentIDE UI | App-server protocol | Protocol | Exposed protocol items |
-| Claude structured | AgentIDE UI | SDK/stream plus hooks as needed | Programmatic interface | Verify by version and configuration |
+| Codex structured | Labradour UI | App-server protocol | Protocol | Exposed protocol items |
+| Claude structured | Labradour UI | SDK/stream plus hooks as needed | Programmatic interface | Verify by version and configuration |
 | Generic CLI | PTY | Plugin if available | Manual bookmarks by default | Terminal and filesystem observations only |
 
 Display coverage in the UI: provider/version, active collectors, supported event categories, dropped events, and missing boundaries. Universal “every tool” tracking requires cooperation from the agent; PTY capture alone cannot deliver it. A shell command is one agent tool invocation, not automatically a complete inventory of its subprocesses or syscalls. An MCP proxy sees only the calls routed through it.
@@ -106,7 +106,7 @@ Parallel calls, background processes, and user edits can overlap. Do not assign 
 Store recording data outside the workspace in the user's application data directory:
 
 ```text
-agentide/workspaces/<workspace-id>/
+labradour/workspaces/<workspace-id>/
   workspace.json          # canonical path, recording policy, schema version
   events.sqlite           # append-only facts and rebuildable query indexes
   history.git/            # private bare Git repository, no remote
@@ -115,7 +115,7 @@ agentide/workspaces/<workspace-id>/
   exports/                # generated visualization bundles
 ```
 
-The scratch repository must have its own objects, refs, configuration, and identity. AgentIDE never stages, commits, resets, or checks out files in the project's repository as part of recording. Do not inject `GIT_DIR`, `GIT_INDEX_FILE`, or scratch configuration into the agent environment. Do not borrow project objects through alternates, which would make retention depend on project garbage collection.
+The scratch repository must have its own objects, refs, configuration, and identity. Labradour never stages, commits, resets, or checks out files in the project's repository as part of recording. Do not inject `GIT_DIR`, `GIT_INDEX_FILE`, or scratch configuration into the agent environment. Do not borrow project objects through alternates, which would make retention depend on project garbage collection.
 
 Recommended snapshot algorithm:
 
@@ -179,7 +179,7 @@ Use separate queues for durable collection, snapshot work, and UI updates. Coale
 Implement the layout and interaction contract in [AgentUI.md](AgentUI.md):
 
 ```text
-+---------------- AgentIDE: workspace / session / coverage ----------------+
++---------------- Labradour: workspace / session / coverage ----------------+
 | Native agent terminal                 | Activity: actors/tools/actions  |
 |                                       | Read       completed            |
 |                                       | Write      completed  <         |
@@ -205,7 +205,7 @@ Retain adjacent checkpoint, tool/batch interval, turn, session, and arbitrary A/
 
 The repository currently describes an OCaml analysis backend and a JS/TS renderer, structured revision-diff extraction, scene JSON, a browser viewer, and a Tauri GUI. It also documents adjacent-commit timeline rendering and basic semantic extraction for Rust, C/C++, and Swift. This makes it a candidate for a graphical companion, rather than the curses renderer. [gitdiffviz repository and README](https://github.com/superstealthlogic/gitdiffviz)
 
-Proposed integration: register gitdiffviz as an optional source-change visualizer/exporter using the contract in [AgentUI.md](AgentUI.md). Export a selected scratch revision pair or session commit chain, invoke a pinned build as a subprocess, and open the resulting visualization locally on user request. The quarter-screen pane retains an embedded creation/diff view and an explicit graphical-open action. Browser/Tauri rendering is a companion surface; consuming analysis output in a terminal renderer requires a separate schema spike. Keep event/attribution metadata in an AgentIDE sidecar unless its schema supports extension. Treat a scratch timeline's checkpoints as captured steps, not project commits.
+Proposed integration: register gitdiffviz as an optional source-change visualizer/exporter using the contract in [AgentUI.md](AgentUI.md). Export a selected scratch revision pair or session commit chain, invoke a pinned build as a subprocess, and open the resulting visualization locally on user request. The quarter-screen pane retains an embedded creation/diff view and an explicit graphical-open action. Browser/Tauri rendering is a companion surface; consuming analysis output in a terminal renderer requires a separate schema spike. Keep event/attribution metadata in an Labradour sidecar unless its schema supports extension. Treat a scratch timeline's checkpoints as captured steps, not project commits.
 
 Before adopting it, run a bounded compatibility spike:
 
@@ -220,13 +220,15 @@ Keep it optional behind the visualizer contract's graphical-export capability. I
 
 ## 8. Implementation stack and modules
 
-Start with **Python 3 + curses/ncurses**, SQLite, Git subprocess plumbing, a mature VT emulator such as `pyte`, and a portable watcher such as `watchdog`. This is a proposed stack, not a verified dependency selection. The first spike must validate terminal fidelity and dependency/platform support before locking it in. Use explicit subprocess argument arrays and NUL-safe filename handling.
+Start with **Python 3 + curses/ncurses**, SQLite, Git subprocess plumbing, `pyte` for the VT screen engine with a pane-local protocol adapter, and `watchdog` for filesystem observations. Phase 0 automated macOS checks now validate this terminal/watcher combination against deterministic fixtures. Authenticated provider fidelity and Linux support remain validation gates before locking in the stack. Use explicit subprocess argument arrays and NUL-safe filename handling.
 
 Suggested modules: `supervisor`, `terminal`, `adapters/{generic,codex,claude}`, `collector`, `journal`, `filesystem`, `snapshots`, `actions`, `diffs`, `ui/{layout,activity,selection}`, `visualizers/{registry,file_create,source_diff,file_delete,command,generic}`, and `exporters/gitdiffviz`. Keep the recorder, adapters, action projection, and visualization preparation independently testable from curses.
 
 If terminal-emulation fidelity or throughput blocks the spike, evaluate a libvterm-backed implementation or a Rust core with ncurses bindings. Preserve the provider-neutral event/storage contract so this choice does not require redesigning the history model.
 
 ## 9. Delivery milestones and acceptance gates
+
+Phase 0 now includes a pyte-backed curses/PTY harness, native and polling watchdog probes, a fake-agent/hook-sink probe, immutable-manifest Git fixtures, and local gitdiffviz compatibility measurements. Core macOS automated checks pass. See [README.md](README.md) for commands and [docs/Phase0.md](docs/Phase0.md) for evidence and remaining gates. Authenticated native CLI hook delivery and Linux execution remain unverified because of environment restrictions; Phase 0 is not yet fully accepted.
 
 | Phase | Deliverable | Acceptance gate |
 | --- | --- | --- |

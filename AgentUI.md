@@ -1,4 +1,4 @@
-# AgentIDE MVP UI specification
+# Labradour MVP UI specification
 
 Date: 2026-10-02. Status: proposed. Companion architecture: [AgentIDEPlan.md](AgentIDEPlan.md).
 
@@ -16,7 +16,7 @@ The default is agent on the left. Users can move it to the right; Activity remai
 
 ```text
 Agent on left (default)
-+-------------------------- AgentIDE: workspace / session ------------------+
++-------------------------- Labradour: workspace / session ------------------+
 | Agent CLI                            | Activity                          |
 |                                      | actor  tool/action  state         |
 |                                      | main   Read         completed     |
@@ -31,7 +31,7 @@ Agent on left (default)
 +---------------- focus / recording health / keys -------------------------+
 
 Agent on right
-+-------------------------- AgentIDE: workspace / session ------------------+
++-------------------------- Labradour: workspace / session ------------------+
 | Activity                             | Agent CLI                         |
 | actor  tool/action  state             |                                   |
 | main   Read         completed        |                                   |

@@ -1,0 +1,116 @@
+{
+  "platform": "Darwin",
+  "python": "3.9.6",
+  "dependencies": {
+    "pyte": "0.8.2",
+    "watchdog": "6.0.0",
+    "wcwidth": "0.9.1"
+  },
+  "terminal_backend": "pyte",
+  "filesystem": {
+    "native": {
+      "backend": "KqueueObserver",
+      "observed": {
+        "create": true,
+        "modify": true,
+        "rename": true,
+        "delete": true
+      },
+      "dropped": 0
+    },
+    "polling": {
+      "backend": "PollingObserver",
+      "observed": {
+        "create": true,
+        "modify": true,
+        "rename": true,
+        "delete": true
+      },
+      "dropped": 0
+    }
+  },
+  "codex": {
+    "available": true,
+    "version": "codex-cli 0.160.0",
+    "startup_bytes": 2687,
+    "process_exited_during_probe": 1,
+    "observed_hooks": [],
+    "unsupported_vt": [
+      "enhanced keyboard protocol",
+      "mode:1000",
+      "mode:1002",
+      "mode:1003",
+      "mode:1004",
+      "mode:1006"
+    ],
+    "startup_screen": [
+      "WARNING: proceeding, even though we could not create PATH aliases: O",
+      "peration not permitted (os error 1)",
+      "Error: Operation not permitted (os error 1)"
+    ],
+    "model_prompt_submitted": false,
+    "hook_trust_bypassed": false
+  },
+  "claude": {
+    "available": true,
+    "version": "2.1.234 (Claude Code)",
+    "startup_bytes": 1282,
+    "process_exited_during_probe": 1,
+    "observed_hooks": [],
+    "unsupported_vt": [
+      "enhanced keyboard protocol",
+      "mode:1004",
+      "mode:2031"
+    ],
+    "startup_screen": [
+      "Welcome to Claude Code v2.1.234",
+      "..........................................................",
+      "     *                                       \u2588\u2588\u2588\u2588\u2588\u2593\u2593\u2591",
+      "                                 *         \u2588\u2588\u2588\u2593\u2591     \u2591\u2591",
+      "            \u2591\u2591\u2591\u2591\u2591\u2591                        \u2588\u2588\u2588\u2593\u2591",
+      "    \u2591\u2591\u2591   \u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591                      \u2588\u2588\u2588\u2593\u2591",
+      "   \u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591    *                \u2588\u2588\u2593\u2591\u2591      \u2593",
+      "                                             \u2591\u2593\u2593\u2588\u2588\u2588\u2593\u2593\u2591",
+      " *                                 \u2591\u2591\u2591\u2591",
+      "                                 \u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591",
+      "                               \u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591",
+      "                                                      *",
+      "      \u2597 \u2597     \u2596 \u2596                       *",
+      "                      *",
+      ".......         ..........................................",
+      " Unable to connect to Anthropic services",
+      " Failed to connect to api.anthropic.com: ENOTFOUND",
+      " Please check your internet connection and network settings.",
+      " Note: Claude Code might not be available in your country. Check",
+      " supported countries at https://anthropic.com/supported-countries"
+    ],
+    "model_prompt_submitted": false,
+    "hook_trust_bypassed": false
+  },
+  "gitdiffviz": {
+    "binary": "/Users/jared.carlson/Projects/gitdiffviz/_build/default/bin/main.exe",
+    "bare_extract": {
+      "exit_code": 124,
+      "stderr": "fatal: this operation must be run in a work tree\ngit-visualization-diff: git exited with status 128"
+    },
+    "checkout_extract": {
+      "exit_code": 0,
+      "stderr": ""
+    },
+    "scene_build": {
+      "exit_code": 0,
+      "stderr": ""
+    },
+    "structured_diff_top_level": [
+      "version",
+      "repoRoot",
+      "comparison",
+      "files",
+      "summary"
+    ],
+    "empty_diff_extract": {
+      "exit_code": 0,
+      "stderr": ""
+    }
+  }
+}
