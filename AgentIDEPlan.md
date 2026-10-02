@@ -2,9 +2,13 @@
 
 Date: 2026-10-02. Status: proposed architecture; no implementation yet.
 
+MVP UI specification: [AgentUI.md](AgentUI.md). That document defines layout, focus, activity selection, and the pluggable visualization contract; this plan defines capture, storage, and delivery. Updated to use the three-pane MVP layout.
+
 ## 1. Goal and initial decisions
 
-Build an ncurses-based IDE that launches a CLI agent, preserves its interactive terminal experience, and lets the user inspect tool activity and evolving files alongside it. The central review path is **session → prompt/turn → tool call → file change → diff**.
+Build an ncurses-based IDE that launches a CLI agent, preserves its interactive terminal experience, and lets the user inspect tool activity and evolving files alongside it. The central review path is **session → prompt/turn → actor/tool/action → selected effect → visualization**. Diffs are one visualization type alongside deletion cards, command/output views, and tool-specific views.
+
+The agent occupies half the usable screen on a configurable left or right side. The other half contains an Activity log above a Visualization pane, each occupying a quarter of the default screen. Selecting a logged action drives the visualization while the native agent remains interactive.
 
 Use three complementary records:
 
@@ -166,43 +170,42 @@ Event families: session and turn lifecycle; agent/subagent lifecycle; tool reque
 
 Reducers build query tables for sessions, turns, calls, file changes, checkpoints, attribution links, and bookmarks. Rebuild them from journal facts. Match call lifecycle records by IDs, distinguish repeated invocations, and mark calls without terminal outcomes as incomplete after interruption. Preserve read/search tools even when they produce no diff.
 
+Add an action/effect projection for the UI: stable selection IDs, actor identity, normalized operation kinds (for example `file.create`, `file.delete`, and `shell.execute`), lifecycle state, parent call links, output references, immutable before/after evidence, and evidence revision. One tool invocation has one primary log row with selectable child effects; external/unknown filesystem observations remain distinguishable. This projection supplies visualizers without coupling them to provider-specific payloads.
+
 Use separate queues for durable collection, snapshot work, and UI updates. Coalesce repaint requests, not facts. Payload limits, spool overflow, backpressure, and reconnect gaps need explicit health events. Launch IDs and workspace IDs prevent unrelated concurrent sessions from contaminating the recording.
 
-## 6. ncurses interface and diff views
+## 6. Three-pane ncurses interface and action visualizations
 
-Proposed default layout:
+Implement the layout and interaction contract in [AgentUI.md](AgentUI.md):
 
 ```text
 +---------------- AgentIDE: workspace / session / coverage ----------------+
-| Native agent terminal                 | Tools / timeline                |
+| Native agent terminal                 | Activity: actors/tools/actions  |
 |                                       | Read       completed            |
-|                                       | Edit       completed +1 file    |
+|                                       | Write      completed  <         |
 |                                       | Bash       running              |
-+---------------------------------------+---------------------------------+
-| Changed files                         | Selected checkpoint/file diff   |
-| src/main.py      M  +12 -3             | @@ ...                          |
-| tests/test.py    A  +20                | - old line                      |
-| old.txt          D                    | + new line                      |
+|                                       +---------------------------------+
+|                                       | Visualization: selected action  |
+|                                       | Creation / deletion / command   |
+|                                       | Diff / output / tool-specific   |
 +---------------- focus / recording health / snapshot age ----------------+
 ```
 
-Offer full-screen terminal and review views for small windows. Use symbols/text as well as color. Expand a tool row to inspect arguments, result, duration, exit status, permissions, candidate files, and linked checkpoints. Filter by turn, tool, status, path, or agent.
+Default geometry is 50:50 horizontally, with the review side split 50:50 vertically. Make agent placement left/right and ratios configurable and persistent. PTY dimensions always match its pane. Use full-screen/compact fallback on small terminals. Affected-file pickers and evidence details belong inside review panes or overlays, not a fourth primary pane.
 
-Initial comparisons:
+The Activity pane shows actor, tool/action, target, state, and effect count. Select by stable ID; new events update rows without stealing historical selection. Expand calls into selectable effects, preserve actor/turn relationships, support filters and live-follow mode, and show attribution quality. Selecting an action immediately drives the Visualization pane.
 
-- Adjacent checkpoints: what changed in this observed step?
-- Before/after a tool or overlapping batch: what changed during this interval?
-- Turn start/end: what changed for this prompt?
-- Session baseline/end: what did the session leave behind?
-- Arbitrary A/B checkpoints: how did a selected file evolve?
+Create a provider-neutral `Visualizer` registry with applicability checks, evidence requirements, cancellable preparation, embedded terminal rendering, and optional graphical export. Route creation to a creation/content view, modification to a source diff, deletion to a deletion/last-content card, and shell execution to a command/output view. Provide built-in fallbacks for reads/searches, renames, binaries, actor lifecycle, MCP/unknown tools, and recording gaps. Multi-effect calls expose an in-pane picker; selecting a child effect routes by operation rather than the parent tool name.
 
-Provide unified diff first, then side-by-side with horizontal scrolling. Add a directory tree with churn counts, a file history strip, a tool-duration timeline, and an agent hierarchy when supported. A reverted edit should remain discoverable through intermediate checkpoints even when session net change is zero. Label rename guesses, ambiguous attribution, binary/oversize exclusions, and incomplete snapshots directly in the view.
+The resolver honors explicit choice, configuration, then applicable plugins and a generic fallback. Its context includes actor/call/effect IDs, operation kind, lifecycle, immutable snapshot and output references, evidence revision, and attribution quality. Preparation must not block the UI; stale results are discarded on selection changes. MVP plugins are registered built-ins and the explicitly installed gitdiffviz subprocess adapter; arbitrary dynamic plugin loading is deferred.
+
+Retain adjacent checkpoint, tool/batch interval, turn, session, and arbitrary A/B comparisons inside file views. Read historical contents rather than the live workspace. A reverted edit remains discoverable even when session net change is zero. Show proposed edits, pending captures, ambiguous intervals, missing content, and plugin failures explicitly. Review never reruns a selected shell command.
 
 ## 7. gitdiffviz evaluation and integration
 
 The repository currently describes an OCaml analysis backend and a JS/TS renderer, structured revision-diff extraction, scene JSON, a browser viewer, and a Tauri GUI. It also documents adjacent-commit timeline rendering and basic semantic extraction for Rust, C/C++, and Swift. This makes it a candidate for a graphical companion, rather than the curses renderer. [gitdiffviz repository and README](https://github.com/superstealthlogic/gitdiffviz)
 
-Proposed integration: export a selected scratch revision pair or session commit chain, invoke a pinned gitdiffviz build as a subprocess, and open the resulting visualization locally on user request. Keep event/attribution metadata in an AgentIDE sidecar unless its schema supports extension. Treat a scratch timeline's checkpoints as captured steps, not project commits.
+Proposed integration: register gitdiffviz as an optional source-change visualizer/exporter using the contract in [AgentUI.md](AgentUI.md). Export a selected scratch revision pair or session commit chain, invoke a pinned build as a subprocess, and open the resulting visualization locally on user request. The quarter-screen pane retains an embedded creation/diff view and an explicit graphical-open action. Browser/Tauri rendering is a companion surface; consuming analysis output in a terminal renderer requires a separate schema spike. Keep event/attribution metadata in an AgentIDE sidecar unless its schema supports extension. Treat a scratch timeline's checkpoints as captured steps, not project commits.
 
 Before adopting it, run a bounded compatibility spike:
 
@@ -213,13 +216,13 @@ Before adopting it, run a bounded compatibility spike:
 5. Benchmark checkpoint-heavy sessions, output size, cancellation, and lazy generation.
 6. Confirm its revision/scene interfaces and whether provider metadata can link back to the IDE.
 
-Keep it optional behind a `VisualizationExporter` interface. If compatibility or packaging costs are excessive, ship standard Git diff plus AgentIDE's terminal views and revisit integration later. Tool reads, command failures, approvals, and non-file operations require the event timeline regardless of the visualization backend.
+Keep it optional behind the visualizer contract's graphical-export capability. If compatibility or packaging costs are excessive, ship the built-in action visualizers and revisit integration later. Deletions default to a deletion card and shell calls to command/output views; gitdiffviz can be offered as an alternate for linked file effects. Tool reads, command failures, approvals, and non-file operations require the event timeline regardless of the visualization backend.
 
 ## 8. Implementation stack and modules
 
 Start with **Python 3 + curses/ncurses**, SQLite, Git subprocess plumbing, a mature VT emulator such as `pyte`, and a portable watcher such as `watchdog`. This is a proposed stack, not a verified dependency selection. The first spike must validate terminal fidelity and dependency/platform support before locking it in. Use explicit subprocess argument arrays and NUL-safe filename handling.
 
-Suggested modules: `supervisor`, `terminal`, `adapters/{generic,codex,claude}`, `collector`, `journal`, `filesystem`, `snapshots`, `diffs`, `ui`, and `exporters/gitdiffviz`. Keep the recorder and adapters independently testable from curses.
+Suggested modules: `supervisor`, `terminal`, `adapters/{generic,codex,claude}`, `collector`, `journal`, `filesystem`, `snapshots`, `actions`, `diffs`, `ui/{layout,activity,selection}`, `visualizers/{registry,file_create,source_diff,file_delete,command,generic}`, and `exporters/gitdiffviz`. Keep the recorder, adapters, action projection, and visualization preparation independently testable from curses.
 
 If terminal-emulation fidelity or throughput blocks the spike, evaluate a libvterm-backed implementation or a Rust core with ncurses bindings. Preserve the provider-neutral event/storage contract so this choice does not require redesigning the history model.
 
@@ -227,11 +230,11 @@ If terminal-emulation fidelity or throughput blocks the spike, evaluate a libvte
 
 | Phase | Deliverable | Acceptance gate |
 | --- | --- | --- |
-| 0: feasibility | PTY/curses spike; Codex and Claude hook probes; Git snapshot fixture; gitdiffviz compatibility notes | Native CLIs render, accept paste/input, resize, and interrupt correctly; coverage matrix reflects measured events |
+| 0: feasibility | PTY/curses three-pane layout/focus spike; Codex and Claude hook probes; Git snapshot fixture; gitdiffviz compatibility notes | Native CLIs render and accept paste/input in a half-width pane; mirror/resize/interrupt work; coverage matrix reflects measured events |
 | 1: recorder | Journal, watcher, baseline, private Git history, crash recovery, generic launcher | Create/edit/delete and reverted edits are reviewable; dirty project index/refs remain untouched; overflow and exclusions are visible |
 | 2: native adapters | Claude and Codex hooks, prompt/tool boundaries, correlation, collector setup/health | Read-only, success, failure, denial, interruption, parallel calls, and subagent fixtures produce correct or explicitly incomplete records |
-| 3: review MVP | Four-pane UI, timeline filters, tool detail, arbitrary checkpoint diff, session replay | User can navigate prompt → call → path → diff and inspect a canceled session without rerunning the agent |
-| 4: graphical export | Optional gitdiffviz exporter, lazy caches, local open action | Historical pair/session exports work; unsupported cases fall back cleanly; core IDE works without gitdiffviz |
+| 3: review MVP | Three-pane UI per AgentUI.md; action/effect selection, actor/tool filters, built-in visualizer registry, checkpoint comparisons, session replay | Half-screen CLI stays interactive; selecting create/delete/shell actions shows distinct quarter-screen views; historical selection is stable and stale render jobs cannot overwrite it |
+| 4: graphical export | Optional gitdiffviz visualizer/exporter, lazy caches, explicit local open action | Historical pair/session exports work; embedded fallback remains usable; core IDE works without gitdiffviz |
 | 5: extended modes | Structured provider backends, multi-session supervisor, stronger recording research | Approval/resume behavior preserved; concurrent sessions stay isolated; fidelity claims have demonstrated limits |
 
 High-value tests should cover rapid edit/revert, create/delete within one command, atomic-save rename, binary changes, symlinks, nested repositories, whitespace/newline filenames, executable modes, user edits during a call, long-running background writers, watcher overflow, collector failure, snapshot interruption, disk full, and exclusion-before-storage. Expect the transient-file test to expose a live-observation gap rather than claim impossible completeness.
@@ -240,6 +243,6 @@ Use recorded provider fixtures and a deterministic fake agent for automated test
 
 ## 10. First concrete implementation slice
 
-Build a generic PTY launcher plus curses terminal pane, a filesystem watcher, the event database, a private Git baseline, and a simple checkpoint diff selector. Drive it with a deterministic fake agent that edits, deletes, and reverts files. Then connect Claude and Codex hooks independently and demonstrate one real session for each.
+Build a generic PTY launcher in the configurable half-screen Agent pane, a filesystem watcher, the event database, a private Git baseline, an Activity list, and a selection-driven Visualization pane. Add built-in creation, source-diff, deletion, command/output, and generic cards through the registry. Drive it with a deterministic fake agent that creates, edits, deletes, reverts files, and runs a shell command. Verify mirror/focus/resize and historical selection using the acceptance scenarios in [AgentUI.md](AgentUI.md). Then connect Claude and Codex hooks independently and demonstrate one real session for each.
 
 That slice proves the core value: seeing the agent work while retaining intermediate changes independently of project commits. Provider protocol backends and graphical export can follow once terminal fidelity, recording quality, and review navigation are established.
