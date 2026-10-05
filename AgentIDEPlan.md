@@ -1,6 +1,6 @@
 # Labradour implementation plan
 
-Date: 2026-10-05. Status: Phase 0 harness implemented; Phase 1 generic recorder accepted; Phase 2 adapter foundation implemented with 70 automated tests passing on macOS/Linux; native provider integration is next.
+Date: 2026-10-05. Status: Phase 0 harness implemented; Phase 1 generic recorder accepted; Phase 2 adapter and correlation implementation complete with automated acceptance on macOS/Linux; real macOS native delivery/denial/concurrency and Linux Codex delivery measured; broader native acceptance remains open.
 
 Current slices are tracked in [Tasks.md](Tasks.md); the adapter foundation, event contract, and remaining native coverage are documented in [docs/Phase2.md](docs/Phase2.md).
 

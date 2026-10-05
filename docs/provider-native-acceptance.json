@@ -1,0 +1,302 @@
+{
+  "schema_version": 1,
+  "measured_at": "2026-10-05T14:33:53.381742+00:00",
+  "scope": "Real native macOS CLI sessions via Labradour PTYs; normal trust review, harmless prompts, no trust/permission bypass. Journal summaries and manual observations are distinct; broad acceptance remains open.",
+  "runs": {
+    "claude_main": {
+      "schema_version": 1,
+      "scope": "Journal evidence only; human acceptance checks remain separate.",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "python": "3.9.6",
+      "installed_versions_at_review": {
+        "claude": "2.1.234 (Claude Code)"
+      },
+      "session": {
+        "id": "2bae6dbc2e79421ca5f2b59fb5b7b206",
+        "started_ns": 1791208017946015000,
+        "status": "completed"
+      },
+      "hook_counts": {
+        "SessionStart": 1,
+        "UserPromptSubmit": 4,
+        "PreToolUse": 10,
+        "PostToolUse": 8,
+        "PostToolUseFailure": 1,
+        "Stop": 3,
+        "SubagentStart": 1,
+        "SubagentStop": 1,
+        "SessionEnd": 1
+      },
+      "tool_observation_counts": {
+        "Read": 6,
+        "Write": 2,
+        "Edit": 4,
+        "Bash": 5,
+        "Agent": 2
+      },
+      "identity_field_counts": {
+        "provider_session_id": 30,
+        "call_id": 19,
+        "actor_id": 4
+      },
+      "boundary_counts": {
+        "session-start": 1,
+        "prompt": 4,
+        "before": 10,
+        "after": 9,
+        "turn-end": 3,
+        "session-end": 1
+      },
+      "unavailable_boundaries": 0,
+      "action_states": {
+        "completed": 8,
+        "failed": 1,
+        "incomplete": 1
+      },
+      "result_outcomes": {
+        "succeeded": 8,
+        "failed": 1
+      },
+      "action_correlation": {
+        "boundary-correlated": 9,
+        "incomplete-evidence": 1
+      },
+      "effects": {
+        "count": 4,
+        "shared": 0,
+        "exclusive_ownership_claims": 0
+      },
+      "actors": 1,
+      "gap_kinds": {},
+      "cleanup_gaps": 0,
+      "native_gate": "requires scenario and human evidence; not inferred from callback counts",
+      "acceptance_txt_checkpoint_contents": [
+        null,
+        "alpha\n",
+        "beta\n",
+        "alpha\n"
+      ]
+    },
+    "codex_main": {
+      "schema_version": 1,
+      "scope": "Journal evidence only; human acceptance checks remain separate.",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "python": "3.9.6",
+      "installed_versions_at_review": {
+        "codex": "codex-cli 0.160.0"
+      },
+      "session": {
+        "id": "6dab30f0a1bf42d0aa49ae3f1c621b55",
+        "started_ns": 1791208098685127000,
+        "status": "completed"
+      },
+      "hook_counts": {
+        "SessionStart": 1,
+        "UserPromptSubmit": 3,
+        "PreToolUse": 11,
+        "PostToolUse": 11,
+        "Stop": 3,
+        "SubagentStart": 1,
+        "SubagentStop": 1
+      },
+      "tool_observation_counts": {
+        "Bash": 12,
+        "apply_patch": 6,
+        "collaborationspawn_agent": 2,
+        "collaborationwait_agent": 2
+      },
+      "identity_field_counts": {
+        "provider_session_id": 31,
+        "turn_id": 30,
+        "call_id": 22,
+        "actor_id": 4
+      },
+      "boundary_counts": {
+        "session-start": 1,
+        "prompt": 3,
+        "before": 11,
+        "after": 11,
+        "turn-end": 3
+      },
+      "unavailable_boundaries": 0,
+      "action_states": {
+        "completed": 11
+      },
+      "result_outcomes": {
+        "unknown": 11
+      },
+      "action_correlation": {
+        "boundary-correlated": 11
+      },
+      "effects": {
+        "count": 4,
+        "shared": 0,
+        "exclusive_ownership_claims": 0
+      },
+      "actors": 1,
+      "gap_kinds": {},
+      "cleanup_gaps": 0,
+      "native_gate": "requires scenario and human evidence; not inferred from callback counts",
+      "acceptance_txt_checkpoint_contents": [
+        null,
+        "alpha\n",
+        "beta\n",
+        "alpha\n"
+      ]
+    },
+    "claude_composition": {
+      "schema_version": 1,
+      "scope": "Journal evidence only; human acceptance checks remain separate.",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "python": "3.9.6",
+      "installed_versions_at_review": {
+        "claude": "2.1.234 (Claude Code)"
+      },
+      "session": {
+        "id": "81af13d3c50b416f970aa4d7b53a0e5b",
+        "started_ns": 1791209298457145000,
+        "status": "completed"
+      },
+      "hook_counts": {
+        "SessionStart": 1,
+        "UserPromptSubmit": 1,
+        "PreToolUse": 1,
+        "PostToolUse": 1,
+        "Stop": 1,
+        "SessionEnd": 1
+      },
+      "tool_observation_counts": {
+        "Bash": 2
+      },
+      "identity_field_counts": {
+        "provider_session_id": 6,
+        "call_id": 2
+      },
+      "boundary_counts": {
+        "session-start": 1,
+        "prompt": 1,
+        "before": 1,
+        "after": 1,
+        "turn-end": 1,
+        "session-end": 1
+      },
+      "unavailable_boundaries": 0,
+      "action_states": {
+        "completed": 1
+      },
+      "result_outcomes": {
+        "succeeded": 1
+      },
+      "action_correlation": {
+        "boundary-correlated": 1
+      },
+      "effects": {
+        "count": 2,
+        "shared": 0,
+        "exclusive_ownership_claims": 0
+      },
+      "actors": 0,
+      "gap_kinds": {},
+      "cleanup_gaps": 0,
+      "native_gate": "requires scenario and human evidence; not inferred from callback counts",
+      "existing_observer": {
+        "layer": "project",
+        "settings_unchanged": true,
+        "hook_counts_for_native_session": {
+          "SessionStart": 1,
+          "Stop": 1,
+          "SessionEnd": 1
+        }
+      }
+    },
+    "codex_composition": {
+      "schema_version": 1,
+      "scope": "Journal evidence only; human acceptance checks remain separate.",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "python": "3.9.6",
+      "installed_versions_at_review": {
+        "codex": "codex-cli 0.160.0"
+      },
+      "session": {
+        "id": "5139cbdc333d44f89ff7844056fae4a9",
+        "started_ns": 1791209299374511000,
+        "status": "completed"
+      },
+      "hook_counts": {
+        "SessionStart": 1,
+        "UserPromptSubmit": 2,
+        "PreToolUse": 3,
+        "PostToolUse": 2,
+        "PermissionRequest": 1,
+        "Interrupt": 1,
+        "Stop": 1,
+        "SessionEnd": 1
+      },
+      "tool_observation_counts": {
+        "Bash": 6
+      },
+      "identity_field_counts": {
+        "provider_session_id": 12,
+        "turn_id": 10,
+        "call_id": 5
+      },
+      "boundary_counts": {
+        "session-start": 1,
+        "prompt": 2,
+        "before": 3,
+        "after": 2,
+        "interrupt": 1,
+        "turn-end": 1,
+        "session-end": 1
+      },
+      "unavailable_boundaries": 0,
+      "action_states": {
+        "completed": 2,
+        "incomplete": 2
+      },
+      "result_outcomes": {
+        "unknown": 2
+      },
+      "action_correlation": {
+        "boundary-correlated": 2,
+        "incomplete-evidence": 2
+      },
+      "effects": {
+        "count": 1,
+        "shared": 0,
+        "exclusive_ownership_claims": 0
+      },
+      "actors": 0,
+      "gap_kinds": {},
+      "cleanup_gaps": 0,
+      "native_gate": "requires scenario and human evidence; not inferred from callback counts",
+      "existing_observer": {
+        "layer": "project",
+        "settings_unchanged": true,
+        "hook_counts_for_native_session": {
+          "SessionStart": 1,
+          "Stop": 1,
+          "SessionEnd": 1
+        }
+      }
+    }
+  },
+  "manual_observations": {
+    "trust": "Claude workspace and Codex workspace/hook trust prompts were reviewed/accepted; no bypass flags.",
+    "composition": "Separate project observer ran alongside injected observer; native source settings unchanged.",
+    "claude_failure": "Exit 7 delivered PostToolUseFailure.",
+    "codex_failure": "Exit 7 completion response was opaque and stayed unknown.",
+    "claude_interruption": "Escape during sleep 30 showed interruption in UI but no terminal tool callback; saved action incomplete.",
+    "codex_rejection": "Escape at native command approval delivered PermissionRequest and Interrupt; missing call identity kept approval unlinked, with no inferred denied result.",
+    "actors": "One read-only subagent per provider; explicit actor IDs, absent parent IDs; Claude turn IDs absent.",
+    "terminal": "Focus traversal and resize exercised. Occasional Claude scrolling repaint remnants seen in text snapshots; human visual check remains open.",
+    "cleanup": "All four launcher sessions exited zero and recordings completed without cleanup gaps. The specifically tracked main-session launcher/native/node process IDs were absent afterward; this check does not certify every possible descendant."
+  },
+  "remaining_checks": [
+    "Actual Claude denial (test command was automatically approved in this environment).",
+    "Native overlapping file writers and external edits (interleaved/read-only subagent callbacks do not prove concurrent write attribution).",
+    "Human visual terminal fidelity and pasted global-control checks.",
+    "Unanswered Claude trust-dialog quit: older startup run had cleanup gap.",
+    "Native Linux runs and untested user/managed/plugin/explicit-CLI hook composition layers."
+  ]
+}

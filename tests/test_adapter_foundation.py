@@ -46,7 +46,14 @@ class AdapterFoundationTests(unittest.TestCase):
         self.assertIsNone(normalized["call_id"])
         self.assertEqual(normalized["quality"]["attribution"], "unassigned")
         for provider in coverage()["providers"].values():
-            self.assertTrue(all(item["status"] == "unverified" for item in provider.values()))
+            for item in provider.values():
+                self.assertIn(item["status"], ("unverified", "observed-limited"))
+                if item["status"] == "observed-limited":
+                    self.assertTrue(item["version"])
+                    self.assertTrue(item["platform"])
+                    self.assertTrue(item["evidence"])
+        self.assertEqual(coverage()["providers"]["claude"]["parallel_calls"]["status"], "observed-limited")
+        self.assertEqual(coverage()["providers"]["codex"]["parallel_calls"]["status"], "observed-limited")
 
     def test_contract_rejects_bad_version_identity_and_non_json(self):
         for field, value in [("schema_version", True), ("schema_version", 2), ("event_id", "../escape"),

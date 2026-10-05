@@ -32,7 +32,7 @@ def clip(text, width):
 
 class Harness:
     def __init__(self, command, workspace, events, side="left", agent_fraction=.5, activity_fraction=.5,
-                 watch=False, watch_backend="native", recording=None, policy=None, collector=False):
+                 watch=False, watch_backend="native", recording=None, policy=None, collector=False, adapter_provider=None):
         self.command, self.workspace, self.events = command, workspace, Path(events)
         self.side = side
         self.agent_fraction, self.activity_fraction = agent_fraction, activity_fraction
@@ -51,6 +51,7 @@ class Harness:
         self.recorder = None
         self.collector_enabled = collector
         self.adapter_collector = None
+        self.adapter_provider = adapter_provider
         from .policy import CapturePolicy
         self.policy = policy or CapturePolicy()
         self.policy_view = bool(recording)
@@ -87,7 +88,7 @@ class Harness:
             payload = record.get("payload", {})
             call = payload.get("tool_use_id")
             # Only merge when both session and call identity are present.
-            key = (payload.get("session_id"), call) if call else None
+            key = (payload.get("session_id"), payload.get("agent_id"), payload.get("turn_id"), call) if call and payload.get("session_id") else None
             existing = next((a for a in self.actions if key and a.get("key") == key), None)
             if existing:
                 existing["payload"].update(payload)
@@ -208,6 +209,8 @@ class Harness:
                              "PostToolUseFailure": "failed"}.get(p.get("hook_event_name"), p.get("hook_event_name", action.get("kind", "event")))
                     label = "%s %s %s" % (p.get("actor", "main/unknown"),
                                             p.get("tool_name", p.get("operation", "session")), state)
+                    if action.get("kind") == "adapter.event":
+                        label = "%s %s %s" % (p.get("actor_id") or "unknown", p.get("payload", {}).get("tool") or "session", p.get("kind", "event"))
                     self.add(window, index - start + 1, 1, label,
                              curses.A_REVERSE if index == self.selected else 0)
                 if not self.actions:
@@ -231,6 +234,11 @@ class Harness:
         footer = "Ctrl-Q quit | Ctrl-] ? help | " + self.notice
         if self.recorder:
             metrics = self.recorder.metrics
+            if self.adapter_provider:
+                count = sum(self.recorder.adapter_counts.values())
+                footer += " | %s hooks: %s" % (self.adapter_provider, str(count) if count else "awaiting delivery/trust")
+                if self.recorder.adapter_gaps:
+                    footer += " gaps %d" % self.recorder.adapter_gaps
             footer += " | scan %.0fms | read %d/cache %d | queue %d" % (
                 metrics.get("scan_ms", 0), metrics.get("read_files", 0), metrics.get("cache_hits", 0),
                 metrics.get("watcher_queue", 0))
@@ -292,7 +300,7 @@ class Harness:
                 self.paint(screen, geometry)
                 self.recorder = Recorder(self.workspace, self.recording, excluded=[self.events],
                                          backend=self.watch_backend, events=self.events, policy=self.policy,
-                                         adapter_collector=self.adapter_collector)
+                                         adapter_collector=self.adapter_collector, adapter_provider=self.adapter_provider)
                 self.recorder.start()
                 if self.adapter_collector:
                     self.adapter_collector.start()
@@ -336,7 +344,12 @@ class Harness:
         finally:
             os.write(1, b"\x1b[?2004l")
             try:
-                self.child.close()
+                stopped = self.child.close()
+                if not stopped and self.recorder:
+                    self.recorder.failed = True
+                    self.recorder.adapter_gaps += 1
+                    self.recorder.cleanup_gap = {"pid": self.child.pid,
+                        "quality": "owned child not reaped after TERM/KILL; shutdown is bounded"}
                 if self.adapter_collector:
                     self.adapter_collector.close()
                 if self.recorder:

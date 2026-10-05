@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "platform": "macOS-26.7.1-arm64-arm-64bit",
+  "python": "3.9.6",
+  "scope": "Startup only; no model prompt, no hook trust bypass, no terminal transcript retained.",
+  "providers": {
+    "claude": {
+      "version": "2.1.234 (Claude Code)",
+      "launcher_exit": 0,
+      "forced_cleanup": false,
+      "prompt_submitted": false,
+      "trust_dialog_answered": false,
+      "status": "startup-only",
+      "callback_counts": {},
+      "boundary_count": 0,
+      "cleanup_gaps": 0,
+      "session_status": "completed-with-gaps"
+    },
+    "codex": {
+      "version": "codex-cli 0.160.0",
+      "launcher_exit": 0,
+      "forced_cleanup": false,
+      "prompt_submitted": false,
+      "trust_dialog_answered": false,
+      "status": "startup-only",
+      "callback_counts": {},
+      "boundary_count": 0,
+      "cleanup_gaps": 0,
+      "session_status": "completed-with-gaps"
+    }
+  }
+}

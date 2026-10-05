@@ -48,6 +48,13 @@ class GeometryTests(unittest.TestCase):
 
 
 class TerminalTests(unittest.TestCase):
+    def test_delete_lines_moves_sparse_blank_rows_without_stale_text(self):
+        terminal = Terminal(4, 10)
+        terminal.feed(b"stale\x1b[1;1H\x1b[M")
+        self.assertEqual(terminal.display, [" " * 10] * 4)
+        terminal.feed(b"\x1b[2;3r\x1b[2;1Hinside\x1b[2;1H\x1b[M")
+        self.assertEqual(terminal.display, [" " * 10] * 4)
+
     def test_cursor_color_query_and_fragmented_unicode(self):
         terminal = Terminal(6, 20)
         terminal.feed(b"\x1b[2;4H\x1b[1;31m")

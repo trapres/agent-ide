@@ -23,8 +23,11 @@ EXCLUDED = DEFAULT_EXCLUDED
 class Recorder:
     def __init__(self, workspace, directory, excluded=(), backend="native", max_file=8 * 1024 * 1024,
                  max_capture=64 * 1024 * 1024, quota=512 * 1024 * 1024, interval=2, events=None, policy=None,
-                 adapter_collector=None):
+                 adapter_collector=None, adapter_provider=None):
         self.adapter_collector = adapter_collector
+        self.adapter_provider = adapter_provider
+        self.adapter_counts = {}
+        self.adapter_gaps = 0
         self.policy = policy or CapturePolicy(max_file_bytes=max_file, max_capture_bytes=max_capture,
                                               storage_budget_bytes=quota)
         self.workspace = Path(workspace).resolve()
@@ -200,6 +203,8 @@ class Recorder:
             essential = ("intent", "commit", "before_commit", "tree", "reason", "quality", "capture_policy_file")
             if kind == "adapter.event":
                 essential = ("kind", "provider", "launch_id", "content_digest")
+            elif kind == "adapter.boundary":
+                essential = ("adapter_event_id", "launch_id", "phase", "completed", "status", "checkpoint", "snapshot_event_id", "quality")
             record["payload"] = {k: payload[k] for k in essential if k in payload and
                                  isinstance(payload[k], (str, int, bool, type(None))) and len(str(payload[k])) <= 256}
             record["payload"].update(payload_truncated=True, original_bytes=len(raw.encode()))
@@ -335,14 +340,14 @@ class Recorder:
         self.metrics.update(metrics, scan_ms=round((time.perf_counter() - started) * 1000, 3))
         return manifest, metadata, issues
 
-    def capture(self, reason):
+    def capture(self, reason, force=False):
         if self.suspended:
             if reason == "baseline":
                 raise getattr(self, "last_error", BudgetExceeded("baseline cannot be captured within storage budget"))
             return
         capture_started = time.perf_counter()
         self.scan_count += 1
-        self.force_read = reason in ("baseline", "startup reconciliation", "session end", "watcher overflow") or self.scan_count % 15 == 0
+        self.force_read = force or reason in ("baseline", "startup reconciliation", "session end", "watcher overflow") or self.scan_count % 15 == 0
         if reason == "periodic reconciliation":
             preview = self.scan()
             if preview[0] == self.manifest and preview[1] == self.last_metadata and not preview[2]:
@@ -369,7 +374,7 @@ class Recorder:
             self.last_metadata = metadata
             self.metrics["captures"] += 1
             self.metrics["capture_prepare_ms"] = round((time.perf_counter() - capture_started) * 1000, 3)
-            self.append("snapshot.completed", {"intent": intent["event_id"], "reason": reason,
+            completed = self.append("snapshot.completed", {"intent": intent["event_id"], "reason": reason,
                         "before_commit": before, "commit": commit, "tree": self.history.tree,
                         "scan_started_ns": started, "scan_finished_ns": time.time_ns(),
                         "quality": "partial" if issues or any(m["type"] != "directory" for m in metadata) else "observed-live-state",
@@ -380,6 +385,7 @@ class Recorder:
                     raise getattr(self, "last_error", BudgetExceeded("baseline completion exceeded storage budget"))
                 return
             self.notice = "recording %s | %s" % (self.session[:8], "partial capture: %d omissions, %d issues" % (len(omitted), len(issues)) if issues or omitted else "checkpoint " + commit[:8])
+            return completed
         except BudgetExceeded as exc:
             self.limit_reached(exc)
             if reason == "baseline":
@@ -404,6 +410,9 @@ class Recorder:
             from .adapters.events import coverage
             self.append("adapter.foundation", {"launch_id": self.adapter_collector.launch_id,
                         "coverage": coverage(), "transport": "authenticated-unix-socket"})
+            if self.adapter_provider:
+                self.append("adapter.configured", {"provider": self.adapter_provider, "status": "awaiting-delivery",
+                            "coverage": "native categories remain unverified", "boundary_timeout_ms": 1500})
         self.capture("baseline")
         self.capture("startup reconciliation")
         self.thread = threading.Thread(target=self._run, name="labradour-recorder", daemon=True)
@@ -433,6 +442,7 @@ class Recorder:
         pending = collector.pending()
         from .adapters.collector import encode
         batch = []
+        boundaries = []
         for _, event in pending:
             event_id = "adapter:" + collector.launch_id + ":" + event["event_id"]
             digest = hashlib.sha256(encode(event)).hexdigest()
@@ -445,7 +455,37 @@ class Recorder:
             else:
                 batch.append(("adapter.event", dict(event, launch_id=collector.launch_id, content_digest=digest),
                               "authenticated-collector", event_id))
+                if not prior:
+                    name = event["payload"].get("hook_event_name", event["kind"])
+                    self.adapter_counts[name] = self.adapter_counts.get(name, 0) + 1
+                    if event["kind"] == "adapter.health":
+                        self.failed = True
+                        self.adapter_gaps += 1
+                if event.get("boundary"):
+                    boundaries.append(event)
         records = self.append_many(batch)
+        if len(records) == len(pending) and not self.suspended:
+            for event in boundaries:
+                boundary_id = "boundary:" + collector.launch_id + ":" + event["event_id"]
+                prior = self.db.execute("SELECT record FROM events WHERE event_id=?", (boundary_id,)).fetchone()
+                if prior:
+                    result = json.loads(prior[0])["payload"]
+                else:
+                    completed = self.capture("adapter boundary " + event["boundary"], force=True)
+                    result = {"adapter_event_id": event["event_id"], "launch_id": collector.launch_id, "phase": event["boundary"],
+                              "completed": completed is not None, "status": "captured" if completed else "unavailable",
+                              "checkpoint": completed["payload"].get("commit") if completed else None,
+                              "snapshot_event_id": completed["event_id"] if completed else None,
+                              "quality": completed["payload"].get("quality") if completed else "capture gap",
+                              "attribution": "boundary-correlated; live scan may overlap other writers"}
+                    saved = self.append("adapter.boundary", result, "recorder", boundary_id)
+                    if saved is None:
+                        result = dict(result, completed=False, status="unavailable")
+                        self.failed = True
+                if not result.get("completed"):
+                    self.adapter_gaps += 1
+                    self.failed = True
+                collector.finish(event["event_id"], result)
         # ACK the spool only after the single writer committed this whole batch.
         if len(records) == len(pending) and not self.suspended:
             collector.acknowledge([path for path, _ in pending])
@@ -502,11 +542,19 @@ class Recorder:
         if self.thread:
             self.thread.join()
         try:
+            if getattr(self, "cleanup_gap", None):
+                self.append("process.cleanup-gap", self.cleanup_gap)
             if self.history and not self.suspended:
                 self.collect_hooks()
                 # Collector is stopped by the host before shutdown drain.
                 for _ in range(4):
                     self.collect_adapters()
+                if self.adapter_provider:
+                    self.append("adapter.delivery", {"provider": self.adapter_provider, "counts": self.adapter_counts,
+                                "gaps": self.adapter_gaps, "status": "observed" if self.adapter_counts else "no-delivery",
+                                "coverage": "observed callbacks do not establish full provider coverage"})
+                    if not self.adapter_counts:
+                        self.failed = True
                 for record in self.watcher.drain(4096):
                     self.append("filesystem.observed", record["payload"], "watchdog", record["event_id"])
                 self.capture("session end")

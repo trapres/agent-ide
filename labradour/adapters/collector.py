@@ -12,6 +12,7 @@ import stat
 import tempfile
 import threading
 import time
+from collections import OrderedDict
 
 from .events import identifier, validate
 
@@ -29,6 +30,11 @@ def signature(token, body):
 
 
 def unpack(envelope, token, launch_id, workspace_id):
+    body = authenticate(envelope, token, launch_id, workspace_id)
+    return validate(body.get("event"))
+
+
+def authenticate(envelope, token, launch_id, workspace_id):
     if not isinstance(envelope, dict) or not isinstance(envelope.get("body"), dict):
         raise ValueError("invalid envelope")
     body = envelope["body"]
@@ -37,7 +43,7 @@ def unpack(envelope, token, launch_id, workspace_id):
         raise ValueError("authentication failed")
     if body.get("launch_id") != launch_id or body.get("workspace_id") != workspace_id:
         raise ValueError("launch/workspace mismatch")
-    return validate(body.get("event"))
+    return body
 
 
 @contextmanager
@@ -125,6 +131,8 @@ class Collector:
         self.thread = None
         self.errors = 0
         self.reported_errors = 0
+        self.receipts = OrderedDict()
+        self.receipt_lock = threading.Lock()
 
     def environment(self):
         return {"LABRADOUR_COLLECTOR_SOCKET": self.path, "LABRADOUR_COLLECTOR_TOKEN": self.token,
@@ -147,9 +155,15 @@ class Collector:
             with connection:
                 try:
                     envelope = receive(connection)
-                    unpack(envelope, self.token, self.launch_id, self.workspace_id)
-                    retain(self.spool, envelope)
-                    response = {"accepted": True, "durability": "spool"}
+                    body = authenticate(envelope, self.token, self.launch_id, self.workspace_id)
+                    if body.get("request") == "receipt":
+                        event_id = identifier(body.get("event_id"), "event_id")
+                        with self.receipt_lock:
+                            response = dict(self.receipts.get(event_id, {"completed": False, "status": "pending"}), accepted=True)
+                    else:
+                        unpack(envelope, self.token, self.launch_id, self.workspace_id)
+                        retain(self.spool, envelope)
+                        response = {"accepted": True, "durability": "spool"}
                 except (ValueError, OSError, TypeError, RecursionError):
                     self.errors += 1
                     response = {"accepted": False, "error": "invalid, unauthorized, or spool full"}
@@ -185,6 +199,13 @@ class Collector:
         with spool_lock(self.spool):
             for path in paths:
                 path.unlink(missing_ok=True)
+
+    def finish(self, event_id, result):
+        with self.receipt_lock:
+            self.receipts[event_id] = result
+            self.receipts.move_to_end(event_id)
+            while len(self.receipts) > 256:
+                self.receipts.popitem(last=False)
 
     def health(self):
         if self.errors == self.reported_errors:
@@ -223,3 +244,36 @@ def submit(event, environment=None):
         # Authenticate fallback files too; a legacy raw spool cannot bypass this.
         retain(Path(env["LABRADOUR_COLLECTOR_SPOOL"]), envelope)
         return {"accepted": True, "durability": "spool", "transport": "fallback"}
+
+
+def wait_receipt(event_id, environment=None, timeout=1.5):
+    """Bounded polling never occupies the server while the recorder captures."""
+    env = os.environ if environment is None else environment
+    identifier(event_id, "event_id")
+    body = {"launch_id": env["LABRADOUR_LAUNCH_ID"], "workspace_id": env["LABRADOUR_WORKSPACE_ID"],
+            "request": "receipt", "event_id": event_id}
+    raw = encode({"body": body, "mac": signature(env["LABRADOUR_COLLECTOR_TOKEN"], body)}) + b"\n"
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+                connection.settimeout(min(.2, max(.001, deadline - time.monotonic())))
+                connection.connect(env["LABRADOUR_COLLECTOR_SOCKET"])
+                connection.sendall(raw)
+                # Receipts fit one small frame; preserve the overall deadline.
+                data = bytearray()
+                while b"\n" not in data:
+                    connection.settimeout(min(.2, max(.001, deadline - time.monotonic())))
+                    chunk = connection.recv(4096)
+                    if not chunk or len(data) + len(chunk) > 4096 or time.monotonic() >= deadline:
+                        raise ValueError("invalid receipt/deadline")
+                    data.extend(chunk)
+                result = json.loads(bytes(data).split(b"\n", 1)[0])
+            if not result.get("accepted"):
+                return {"completed": False, "status": "rejected"}
+            if result.get("status") != "pending":
+                return result
+        except (OSError, ValueError):
+            pass
+        time.sleep(min(.02, max(0, deadline - time.monotonic())))
+    return {"completed": False, "status": "timeout"}

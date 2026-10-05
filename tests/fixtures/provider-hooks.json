@@ -1,0 +1,34 @@
+{
+  "fixture_version": 1,
+  "provenance": "Constructed from official hook field contracts checked 2026-10-05; not captured native sessions",
+  "sources": {
+    "claude": "https://code.claude.com/docs/en/hooks",
+    "codex": "https://learn.chatgpt.com/docs/hooks"
+  },
+  "cases": [
+    {"provider":"claude","kind":"session.started","raw":{"hook_event_name":"SessionStart","session_id":"claude-session","source":"startup"}},
+    {"provider":"claude","kind":"turn.started","raw":{"hook_event_name":"UserPromptSubmit","session_id":"claude-session","prompt":"Inspect the dummy fixture"}},
+    {"provider":"claude","kind":"tool.requested","raw":{"hook_event_name":"PreToolUse","session_id":"claude-session","tool_use_id":"read-1","tool_name":"Read","tool_input":{"file_path":"sample.txt"}}},
+    {"provider":"claude","kind":"tool.completed","raw":{"hook_event_name":"PostToolUse","session_id":"claude-session","tool_use_id":"read-1","tool_name":"Read","tool_response":{"content":"dummy text"}}},
+    {"provider":"claude","kind":"tool.failed","raw":{"hook_event_name":"PostToolUseFailure","session_id":"claude-session","tool_use_id":"shell-1","tool_name":"Bash","error":"fixture failure","is_interrupt":false}},
+    {"provider":"claude","kind":"tool.interrupted","raw":{"hook_event_name":"PostToolUseFailure","session_id":"claude-session","tool_use_id":"shell-2","tool_name":"Bash","error":"fixture interruption","is_interrupt":true}},
+    {"provider":"claude","kind":"approval.requested","raw":{"hook_event_name":"PermissionRequest","session_id":"claude-session","tool_use_id":"shell-3","tool_name":"Bash","tool_input":{"command":"echo dummy"}}},
+    {"provider":"claude","kind":"tool.denied","raw":{"hook_event_name":"PermissionDenied","session_id":"claude-session","tool_use_id":"shell-3","permission_mode":"auto","reason":"fixture auto denial"}},
+    {"provider":"claude","kind":"actor.started","raw":{"hook_event_name":"SubagentStart","session_id":"claude-session","agent_id":"child-1","agent_type":"Explore"}},
+    {"provider":"claude","kind":"actor.ended","raw":{"hook_event_name":"SubagentStop","session_id":"claude-session","agent_id":"child-1","agent_type":"Explore"}},
+    {"provider":"claude","kind":"turn.completed","raw":{"hook_event_name":"Stop","session_id":"claude-session","stop_hook_active":false}},
+    {"provider":"claude","kind":"turn.failed","raw":{"hook_event_name":"StopFailure","session_id":"claude-session","error":"fixture failure"}},
+    {"provider":"claude","kind":"session.ended","raw":{"hook_event_name":"SessionEnd","session_id":"claude-session","reason":"other"}},
+    {"provider":"codex","kind":"session.started","raw":{"hook_event_name":"SessionStart","session_id":"codex-session","source":"startup"}},
+    {"provider":"codex","kind":"turn.started","raw":{"hook_event_name":"UserPromptSubmit","session_id":"codex-session","turn_id":"turn-1","prompt":"Inspect dummy file"}},
+    {"provider":"codex","kind":"tool.requested","raw":{"hook_event_name":"PreToolUse","session_id":"codex-session","turn_id":"turn-1","tool_use_id":"patch-1","tool_name":"apply_patch","tool_input":{"command":"fixture patch"}}},
+    {"provider":"codex","kind":"tool.completed","raw":{"hook_event_name":"PostToolUse","session_id":"codex-session","turn_id":"turn-1","tool_use_id":"patch-1","tool_name":"apply_patch","tool_response":"fixture response"}},
+    {"provider":"codex","kind":"tool.failed","raw":{"hook_event_name":"PostToolUse","session_id":"codex-session","turn_id":"turn-1","tool_use_id":"shell-1","tool_name":"Bash","tool_response":{"exit_code":1,"stdout":"dummy","stderr":"fixture"}}},
+    {"provider":"codex","kind":"approval.requested","raw":{"hook_event_name":"PermissionRequest","session_id":"codex-session","turn_id":"turn-1","tool_use_id":"shell-2","tool_name":"Bash","tool_input":{"command":"echo dummy"}}},
+    {"provider":"codex","kind":"actor.started","raw":{"hook_event_name":"SubagentStart","session_id":"codex-session","turn_id":"turn-1","agent_id":"child-1","agent_type":"explorer"}},
+    {"provider":"codex","kind":"actor.ended","raw":{"hook_event_name":"SubagentStop","session_id":"codex-session","turn_id":"turn-1","agent_id":"child-1"}},
+    {"provider":"codex","kind":"turn.interrupted","raw":{"hook_event_name":"Interrupt","session_id":"codex-session","turn_id":"turn-1"}},
+    {"provider":"codex","kind":"turn.completed","raw":{"hook_event_name":"Stop","session_id":"codex-session","turn_id":"turn-1"}},
+    {"provider":"codex","kind":"session.ended","raw":{"hook_event_name":"SessionEnd","session_id":"codex-session","reason":"other"}}
+  ]
+}

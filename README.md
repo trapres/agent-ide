@@ -6,7 +6,7 @@ For a hands-on walkthrough of current behavior, recorder checks, and features st
 
 The proposed integration contract for customizable visualization plugins is in [VizApi.md](docs/VizApi.md).
 
-Phase 2 work is tracked in [Tasks.md](Tasks.md). The opt-in authenticated adapter collector, fixture, and provider coverage matrix are described in [Phase2.md](docs/Phase2.md); native provider mappings remain the next slice.
+Phase 2 work is tracked in [Tasks.md](Tasks.md). The authenticated collector, Claude/Codex mappings, boundary receipts, fixtures, and coverage matrix are described in [Phase2.md](docs/Phase2.md). Read-only correlation is available through `actions`; real macOS delivery, denial/concurrency and Linux Codex delivery have measured evidence; the broader native gate remains open. Follow [Phase2TestGuide.md](docs/Phase2TestGuide.md).
 
 The repository contains the **Phase 0 harness and the accepted Phase 1 generic recorder**. The full review MVP remains later work. It requires Python 3.9+, Git, pyte, watchdog, and wcwidth. Dependency versions are in [requirements.txt](requirements.txt); use `python3 -m pip install -r requirements.txt` with the interpreter you will launch. Automated acceptance passes on macOS/Python 3.9.6 and Linux arm64/Python 3.11.17 in Docker. Measurements and reproduction commands are in [Recorder acceptance](docs/RecorderAcceptance.md).
 
@@ -34,7 +34,7 @@ python3 -m labradour run --workspace /path/to/project --hooks claude -- claude
 
 The harness writes its configuration in a temporary directory and does not install or rewrite user/project settings. Codex hook trust still applies: review the generated definition through its native `/hooks` workflow. The Codex probe uses `--no-daemon` to keep a dedicated child process. No tool permissions or hook trust checks are bypassed. Native hook delivery/merging is still a verification gate; see [Phase 0 results](docs/Phase0.md).
 
-By default hook payloads are temporary and removed when the harness closes. Supply `--events /path/to/new-spool` to retain the hook files. The native agent itself runs normally in the chosen project. Add `--watch` to display filesystem observations; these are held in memory and attributed to external/unknown rather than assumed to belong to a tool. For durable content checkpoints, use `--record` as described below. Observation-only `--watch` starts after the child launches, so it does not guarantee capture of startup writes.
+Without recording, hook payloads are temporary; `--events /path/to/new-spool` retains the probe files. With `--record --hooks`, facts use the authenticated collector and persist in the journal; acknowledged spool files are removed. The native agent runs in the chosen project. Add `--watch` for in-memory filesystem observations, attributed to external/unknown. Use `--record` for durable checkpoints. Observation-only watching starts after launch and does not guarantee startup writes.
 
 The default native watchdog backend is kqueue on macOS and the platform default on Linux. Use `--watch-backend polling` explicitly when needed. Git administration, `.venv`, Python caches, and the hook spool are excluded. This is a feasibility collector, with a bounded queue and a visible dropped-event count.
 
@@ -113,4 +113,4 @@ python3 tools/phase0_probe.py \
   --output /tmp/labradour-probe.json
 ```
 
-The terminal backend now uses **pyte** for VT parsing, screen editing, UTF-8, wrapping, and history. Adapter code provides separate alternate/primary screens, bracketed paste/application cursor modes, DEC graphics, and pane-local xterm query replies. Curses approximates RGB colors to its palette. Mouse/focus reporting and enhanced keyboard modes remain unsupported and are reported. The user has verified that both native providers launch through Labradour. Broader terminal behavior, hook coverage, and Linux acceptance remain pending. [Phase 0 results and remaining gates](docs/Phase0.md) distinguish automated evidence from unverified behavior.
+The terminal backend now uses **pyte** for VT parsing, screen editing, UTF-8, wrapping, and history. Adapter code provides separate alternate/primary screens, bracketed paste/application cursor modes, DEC graphics, and pane-local xterm query replies. Curses approximates RGB colors to its palette. Mouse/focus reporting and enhanced keyboard modes remain unsupported and are reported. The user has verified that both native providers launch through Labradour. Core macOS delivery/denial/concurrency and Linux Codex delivery are measured. Human visual checks, Linux Claude sign-in and additional settings layers remain pending. [Phase 0 results and remaining gates](docs/Phase0.md) distinguish automated evidence from unverified behavior.

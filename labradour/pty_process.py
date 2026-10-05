@@ -109,14 +109,30 @@ class PtyProcess:
             os.killpg(self.pid, signal.SIGTERM)
         except ProcessLookupError:
             pass
+        # A native launcher can change its process group. Always terminate the
+        # owned direct child as well, before waiting for it.
+        if self.poll() is None:
+            try:
+                os.kill(self.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
         deadline = time.monotonic() + 1
         while self.poll() is None and time.monotonic() < deadline:
             time.sleep(.02)
+        # Release the controlling terminal before the final reap. On macOS,
+        # a native process at its trust dialog can finish dying only once the
+        # master closes; waiting with it open produces a false cleanup gap.
+        os.close(self.fd)
         try:
             os.killpg(self.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
         if self.status is None:
-            _, status = os.waitpid(self.pid, 0)
-            self.status = os.waitstatus_to_exitcode(status)
-        os.close(self.fd)
+            try:
+                os.kill(self.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            deadline = time.monotonic() + 1
+            while self.poll() is None and time.monotonic() < deadline:
+                time.sleep(.02)
+        return self.status is not None

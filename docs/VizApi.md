@@ -321,3 +321,7 @@ Conformance must demonstrate:
 - A user can map an operation to a different applicable plugin without editing recorder/provider code.
 
 This document defines the proposed integration boundary. Current manual checks remain in [Phase1TestGuide.md](Phase1TestGuide.md); the broader delivery milestones remain in [AgentIDEPlan.md](../AgentIDEPlan.md).
+
+## Current correlation foundation
+
+Phase 2 now provides `python3 -m labradour actions RECORDING --session SESSION_ID`, a read-only journal projection with stable opaque action/effect IDs, scoped actor identities, raw input/output/error references, immutable checkpoint references, candidate action lists, capture quality, and evidence gaps. See [Phase2.md](Phase2.md) for semantics. The output is an internal replay format; the scoped evidence handles, plugin transport, view revisions, and rendering API described above remain proposed Phase 4 work. A future context adapter must retain its ambiguous attribution and missing evidence rather than infer exclusive ownership.

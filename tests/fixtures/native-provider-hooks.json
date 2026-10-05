@@ -1,0 +1,761 @@
+{
+  "schema_version": 1,
+  "provenance": "Captured from installed native CLIs through Labradour on macOS 26.7.1/Python 3.9.6; normal trust dialogs, no bypass. Paths and opaque IDs redacted; own harmless acceptance prompts only.",
+  "versions": {
+    "claude": "2.1.234",
+    "codex": "0.160.0"
+  },
+  "cases": [
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "SessionStart",
+        "model": "claude-opus-5[1m]",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "source": "startup",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "session.started"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "UserPromptSubmit",
+        "permission_mode": "auto",
+        "prompt": "In this disposable acceptance workspace, use Read on readme.txt. Then use Write to create acceptance.txt containing alpha followed by a newline; use Edit to change alpha to beta; then use Edit to revert beta to alpha. Run separate Bash calls printf LABRADOUR_SHELL_OK and sh -c 'exit 7'. Do not modify any other files, use network tools, install anything, or change settings. Report briefly when done.",
+        "prompt_id": "bf674751-5b79-4870-9c04-29910fd5c8ed",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "turn.started"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "PreToolUse",
+        "permission_mode": "auto",
+        "prompt_id": "bf674751-5b79-4870-9c04-29910fd5c8ed",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "tool_input": {
+          "file_path": "/private/fixture/workspace/readme.txt"
+        },
+        "tool_name": "Read",
+        "tool_use_id": "tool_use_id-06111ffcfe11b318",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "tool.requested"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "duration_ms": 2,
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "PostToolUse",
+        "permission_mode": "auto",
+        "prompt_id": "bf674751-5b79-4870-9c04-29910fd5c8ed",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "tool_input": {
+          "file_path": "/private/fixture/workspace/readme.txt"
+        },
+        "tool_name": "Read",
+        "tool_response": {
+          "file": {
+            "content": "LABRADOUR_NATIVE_READ_MARKER\n",
+            "filePath": "/private/fixture/workspace/readme.txt",
+            "numLines": 2,
+            "startLine": 1,
+            "totalLines": 2
+          },
+          "type": "text"
+        },
+        "tool_use_id": "tool_use_id-06111ffcfe11b318",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "tool.completed"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "PreToolUse",
+        "permission_mode": "auto",
+        "prompt_id": "bf674751-5b79-4870-9c04-29910fd5c8ed",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "tool_input": {
+          "content": "alpha\n",
+          "file_path": "/private/fixture/workspace/acceptance.txt"
+        },
+        "tool_name": "Write",
+        "tool_use_id": "tool_use_id-8ee05f23f84ee898",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "tool.requested"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "duration_ms": 5,
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "PostToolUse",
+        "permission_mode": "auto",
+        "prompt_id": "bf674751-5b79-4870-9c04-29910fd5c8ed",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "tool_input": {
+          "content": "alpha\n",
+          "file_path": "/private/fixture/workspace/acceptance.txt"
+        },
+        "tool_name": "Write",
+        "tool_response": {
+          "content": "alpha\n",
+          "filePath": "/private/fixture/workspace/acceptance.txt",
+          "originalFile": null,
+          "structuredPatch": [],
+          "type": "create",
+          "userModified": false
+        },
+        "tool_use_id": "tool_use_id-8ee05f23f84ee898",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "tool.completed"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "PreToolUse",
+        "permission_mode": "auto",
+        "prompt_id": "bf674751-5b79-4870-9c04-29910fd5c8ed",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "tool_input": {
+          "file_path": "/private/fixture/workspace/acceptance.txt",
+          "new_string": "beta",
+          "old_string": "alpha",
+          "replace_all": false
+        },
+        "tool_name": "Edit",
+        "tool_use_id": "tool_use_id-aa16cd75edaa5125",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "tool.requested"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "duration_ms": 4,
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "PostToolUse",
+        "permission_mode": "auto",
+        "prompt_id": "bf674751-5b79-4870-9c04-29910fd5c8ed",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "tool_input": {
+          "file_path": "/private/fixture/workspace/acceptance.txt",
+          "new_string": "beta",
+          "old_string": "alpha",
+          "replace_all": false
+        },
+        "tool_name": "Edit",
+        "tool_response": {
+          "filePath": "/private/fixture/workspace/acceptance.txt",
+          "newString": "beta",
+          "oldString": "alpha",
+          "originalFile": "alpha\n",
+          "replaceAll": false,
+          "structuredPatch": [
+            {
+              "lines": [
+                "-alpha",
+                "+beta"
+              ],
+              "newLines": 1,
+              "newStart": 1,
+              "oldLines": 1,
+              "oldStart": 1
+            }
+          ],
+          "userModified": false
+        },
+        "tool_use_id": "tool_use_id-aa16cd75edaa5125",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "tool.completed"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "PreToolUse",
+        "permission_mode": "auto",
+        "prompt_id": "bf674751-5b79-4870-9c04-29910fd5c8ed",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "tool_input": {
+          "command": "printf LABRADOUR_SHELL_OK",
+          "description": "Print shell marker"
+        },
+        "tool_name": "Bash",
+        "tool_use_id": "tool_use_id-81b470ba50ab7c92",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "tool.requested"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "duration_ms": 77,
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "PostToolUse",
+        "permission_mode": "auto",
+        "prompt_id": "bf674751-5b79-4870-9c04-29910fd5c8ed",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "tool_input": {
+          "command": "printf LABRADOUR_SHELL_OK",
+          "description": "Print shell marker"
+        },
+        "tool_name": "Bash",
+        "tool_response": {
+          "interrupted": false,
+          "isImage": false,
+          "noOutputExpected": false,
+          "stderr": "",
+          "stdout": "LABRADOUR_SHELL_OK"
+        },
+        "tool_use_id": "tool_use_id-81b470ba50ab7c92",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "tool.completed"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "duration_ms": 38,
+        "effort": {
+          "level": "high"
+        },
+        "error": "Exit code 7",
+        "hook_event_name": "PostToolUseFailure",
+        "is_interrupt": false,
+        "permission_mode": "auto",
+        "prompt_id": "bf674751-5b79-4870-9c04-29910fd5c8ed",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "tool_input": {
+          "command": "sh -c 'exit 7'",
+          "description": "Exit with status 7"
+        },
+        "tool_name": "Bash",
+        "tool_use_id": "tool_use_id-07915f62120d6531",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "tool.failed"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "background_tasks": [],
+        "cwd": "/private/fixture/workspace",
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "Stop",
+        "last_assistant_message": "All steps done:\n\n- **Read** `readme.txt` \u2192 `LABRADOUR_NATIVE_READ_MARKER`\n- **Write** created `acceptance.txt` with `alpha\\n`\n- **Edit** alpha \u2192 beta, then **Edit** beta \u2192 alpha (file back to `alpha\\n`)\n- **Bash** `printf LABRADOUR_SHELL_OK` \u2192 printed `LABRADOUR_SHELL_OK`, exit 0\n- **Bash** `sh -c 'exit 7'` \u2192 exit code 7, as expected\n\nNo other files touched, no network, no installs, no settings changes.",
+        "permission_mode": "auto",
+        "prompt_id": "bf674751-5b79-4870-9c04-29910fd5c8ed",
+        "session_crons": [],
+        "session_id": "session_id-4f43cfa1082b809a",
+        "stop_hook_active": false,
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "turn.completed"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "PreToolUse",
+        "permission_mode": "auto",
+        "prompt_id": "460d9eb5-ca76-4535-81d6-483988da620d",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "tool_input": {
+          "description": "Read-only check of readme.txt",
+          "prompt": "Read-only task: Read the file /private/fixture/workspace/readme.txt and report its exact contents and line count. Do not modify any files and do not use network tools. Keep your report to one or two lines.",
+          "subagent_type": "Explore"
+        },
+        "tool_name": "Agent",
+        "tool_use_id": "tool_use_id-6e308f5e65299c80",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "tool.requested"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "duration_ms": 7,
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "PostToolUse",
+        "permission_mode": "auto",
+        "prompt_id": "460d9eb5-ca76-4535-81d6-483988da620d",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "tool_input": {
+          "description": "Read-only check of readme.txt",
+          "prompt": "Read-only task: Read the file /private/fixture/workspace/readme.txt and report its exact contents and line count. Do not modify any files and do not use network tools. Keep your report to one or two lines.",
+          "subagent_type": "Explore"
+        },
+        "tool_name": "Agent",
+        "tool_response": {
+          "agentId": "agent_id-b3857f5da7563c52",
+          "canReadOutputFile": true,
+          "description": "Read-only check of readme.txt",
+          "isAsync": true,
+          "outputFile": "/fixture/task.output",
+          "prompt": "Read-only task: Read the file /private/fixture/workspace/readme.txt and report its exact contents and line count. Do not modify any files and do not use network tools. Keep your report to one or two lines.",
+          "resolvedModel": "claude-opus-5[1m]",
+          "status": "async_launched"
+        },
+        "tool_use_id": "tool_use_id-6e308f5e65299c80",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "tool.completed"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "agent_id": "agent_id-b3857f5da7563c52",
+        "agent_type": "Explore",
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "SubagentStart",
+        "prompt_id": "460d9eb5-ca76-4535-81d6-483988da620d",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "actor.started"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "agent_id": "agent_id-b3857f5da7563c52",
+        "agent_type": "Explore",
+        "cwd": "/private/fixture/workspace",
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "PreToolUse",
+        "permission_mode": "auto",
+        "prompt_id": "460d9eb5-ca76-4535-81d6-483988da620d",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "tool_input": {
+          "file_path": "/private/fixture/workspace/readme.txt"
+        },
+        "tool_name": "Read",
+        "tool_use_id": "tool_use_id-9d693e5065214b07",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "tool.requested"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "agent_id": "agent_id-b3857f5da7563c52",
+        "agent_type": "Explore",
+        "cwd": "/private/fixture/workspace",
+        "duration_ms": 0,
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "PostToolUse",
+        "permission_mode": "auto",
+        "prompt_id": "460d9eb5-ca76-4535-81d6-483988da620d",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "tool_input": {
+          "file_path": "/private/fixture/workspace/readme.txt"
+        },
+        "tool_name": "Read",
+        "tool_response": {
+          "file": {
+            "content": "LABRADOUR_NATIVE_READ_MARKER\n",
+            "filePath": "/private/fixture/workspace/readme.txt",
+            "numLines": 2,
+            "startLine": 1,
+            "totalLines": 2
+          },
+          "type": "text"
+        },
+        "tool_use_id": "tool_use_id-9d693e5065214b07",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "tool.completed"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "agent_id": "agent_id-b3857f5da7563c52",
+        "agent_transcript_path": "/fixture/transcript.jsonl",
+        "agent_type": "Explore",
+        "background_tasks": [
+          {
+            "agent_type": "Explore",
+            "description": "Read-only check of readme.txt",
+            "id": "a25c6c3f5488e276b",
+            "status": "running",
+            "type": "subagent"
+          }
+        ],
+        "cwd": "/private/fixture/workspace",
+        "effort": {
+          "level": "high"
+        },
+        "hook_event_name": "SubagentStop",
+        "last_assistant_message": "/private/fixture/workspace/readme.txt contains exactly one line: `LABRADOUR_NATIVE_READ_MARKER` (1 line, trailing newline).",
+        "permission_mode": "auto",
+        "prompt_id": "460d9eb5-ca76-4535-81d6-483988da620d",
+        "session_crons": [],
+        "session_id": "session_id-4f43cfa1082b809a",
+        "stop_hook_active": false,
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "actor.ended"
+    },
+    {
+      "provider": "claude",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "SessionEnd",
+        "prompt_id": "98821817-6ba0-432d-9bb1-61191846137f",
+        "reason": "prompt_input_exit",
+        "session_id": "session_id-4f43cfa1082b809a",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "session.ended"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "SessionStart",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "source": "startup",
+        "transcript_path": "/fixture/transcript.jsonl"
+      },
+      "kind": "session.started"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "UserPromptSubmit",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "prompt": "In this disposable workspace, read readme.txt with a local shell command. Use apply_patch to create acceptance.txt with alpha, then a separate apply_patch to change alpha to beta, then a separate apply_patch to revert beta to alpha. Run separate local shell calls printf LABRADOUR_SHELL_OK and sh -c 'exit 7'. Do not touch other files, use network tools, install anything, or change settings. Keep the final report brief.",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-ff465e43245e3d83"
+      },
+      "kind": "turn.started"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "PreToolUse",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "tool_input": {
+          "command": "cat readme.txt"
+        },
+        "tool_name": "Bash",
+        "tool_use_id": "tool_use_id-e2479b62036d6dc4",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-ff465e43245e3d83"
+      },
+      "kind": "tool.requested"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "PostToolUse",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "tool_input": {
+          "command": "cat readme.txt"
+        },
+        "tool_name": "Bash",
+        "tool_response": "LABRADOUR_NATIVE_READ_MARKER\n",
+        "tool_use_id": "tool_use_id-e2479b62036d6dc4",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-ff465e43245e3d83"
+      },
+      "kind": "tool.completed"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "PreToolUse",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "tool_input": {
+          "command": "*** Begin Patch\n*** Add File: acceptance.txt\n+alpha\n*** End Patch"
+        },
+        "tool_name": "apply_patch",
+        "tool_use_id": "tool_use_id-e8a450940578c610",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-ff465e43245e3d83"
+      },
+      "kind": "tool.requested"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "PostToolUse",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "tool_input": {
+          "command": "*** Begin Patch\n*** Add File: acceptance.txt\n+alpha\n*** End Patch"
+        },
+        "tool_name": "apply_patch",
+        "tool_response": "Exit code: 0\nWall time: 0 seconds\nOutput:\nSuccess. Updated the following files:\nA acceptance.txt\n",
+        "tool_use_id": "tool_use_id-e8a450940578c610",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-ff465e43245e3d83"
+      },
+      "kind": "tool.completed"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "Stop",
+        "last_assistant_message": "Done. Read `readme.txt`; three separate patches created `acceptance.txt` as `alpha`, changed it to `beta`, then restored `alpha`.\n\n`printf` printed `LABRADOUR_SHELL_OK`; the separate `sh` call exited with code 7. No other files were touched.",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "stop_hook_active": false,
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-ff465e43245e3d83"
+      },
+      "kind": "turn.completed"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "PreToolUse",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "tool_input": {
+          "fork_turns": "all",
+          "message": "gAAAAABqw6xso9K3e3V-1T-iXbuC5j2fhHzSL6GtBzC1h2NBlCpj8cep_OKT0k0IByux47Xgp0b3VQgYkR9Y-FtadZPyZbHT3QgL1d34JDQeDhSy1UZicy0SQMyHQCk8veq4YPF0FSLDAWuBRvZD1mrRTM_8cYKDCCau_Uc9pYcIoEwH_a7wkkRWddQofGW5W3LifB6oiOn_BIGE5B2VBR2OEvhT-GG7ZAyCNxzeU6KreUelWheASCSfNtru-XT9xEqd_WrvUJF6CBD1kIsUp9UVvqSZHjjToZTCExrjOV8GA4ZTo5uOYtQ=",
+          "task_name": "read_readme"
+        },
+        "tool_name": "collaborationspawn_agent",
+        "tool_use_id": "tool_use_id-79b1b4c95cb62f80",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-2ec4e550545ccd39"
+      },
+      "kind": "tool.requested"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "PostToolUse",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "tool_input": {
+          "fork_turns": "all",
+          "message": "gAAAAABqw6xso9K3e3V-1T-iXbuC5j2fhHzSL6GtBzC1h2NBlCpj8cep_OKT0k0IByux47Xgp0b3VQgYkR9Y-FtadZPyZbHT3QgL1d34JDQeDhSy1UZicy0SQMyHQCk8veq4YPF0FSLDAWuBRvZD1mrRTM_8cYKDCCau_Uc9pYcIoEwH_a7wkkRWddQofGW5W3LifB6oiOn_BIGE5B2VBR2OEvhT-GG7ZAyCNxzeU6KreUelWheASCSfNtru-XT9xEqd_WrvUJF6CBD1kIsUp9UVvqSZHjjToZTCExrjOV8GA4ZTo5uOYtQ=",
+          "task_name": "read_readme"
+        },
+        "tool_name": "collaborationspawn_agent",
+        "tool_response": "{\"task_name\":\"/root/read_readme\"}",
+        "tool_use_id": "tool_use_id-79b1b4c95cb62f80",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-2ec4e550545ccd39"
+      },
+      "kind": "tool.completed"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "agent_id": "agent_id-4638f8e206399977",
+        "agent_type": "default",
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "SubagentStart",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-f7f8657ebbd4db45"
+      },
+      "kind": "actor.started"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "PreToolUse",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "tool_input": {
+          "timeout_ms": 60000
+        },
+        "tool_name": "collaborationwait_agent",
+        "tool_use_id": "tool_use_id-9edc079312912f5a",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-2ec4e550545ccd39"
+      },
+      "kind": "tool.requested"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "agent_id": "agent_id-4638f8e206399977",
+        "agent_type": "default",
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "PreToolUse",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "tool_input": {
+          "command": "cat readme.txt"
+        },
+        "tool_name": "Bash",
+        "tool_use_id": "tool_use_id-834bd1de80b5e9da",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-f7f8657ebbd4db45"
+      },
+      "kind": "tool.requested"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "agent_id": "agent_id-4638f8e206399977",
+        "agent_type": "default",
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "PostToolUse",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "tool_input": {
+          "command": "cat readme.txt"
+        },
+        "tool_name": "Bash",
+        "tool_response": "LABRADOUR_NATIVE_READ_MARKER\n",
+        "tool_use_id": "tool_use_id-834bd1de80b5e9da",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-f7f8657ebbd4db45"
+      },
+      "kind": "tool.completed"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "agent_id": "agent_id-4638f8e206399977",
+        "agent_transcript_path": "/fixture/transcript.jsonl",
+        "agent_type": "default",
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "SubagentStop",
+        "last_assistant_message": "`readme.txt` contains `LABRADOUR_NATIVE_READ_MARKER`. No changes made.",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "stop_hook_active": false,
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-f7f8657ebbd4db45"
+      },
+      "kind": "actor.ended"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "cwd": "/private/fixture/workspace",
+        "hook_event_name": "PostToolUse",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-a63b42d0cdcbbdbd",
+        "tool_input": {
+          "timeout_ms": 60000
+        },
+        "tool_name": "collaborationwait_agent",
+        "tool_response": "{\"message\":\"Wait completed.\",\"timed_out\":false}",
+        "tool_use_id": "tool_use_id-9edc079312912f5a",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-2ec4e550545ccd39"
+      },
+      "kind": "tool.completed"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "cwd": "/fixture/workspace",
+        "hook_event_name": "PermissionRequest",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-986cc01d411574d7",
+        "tool_input": {
+          "command": "printf LABRADOUR_DENIAL_MARKER",
+          "description": "Do you approve running the harmless shell command printf LABRADOUR_DENIAL_MARKER? You can reject this prompt."
+        },
+        "tool_name": "Bash",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-3ca4bb51faa0d475"
+      },
+      "kind": "approval.requested"
+    },
+    {
+      "provider": "codex",
+      "raw": {
+        "cwd": "/fixture/workspace",
+        "hook_event_name": "Interrupt",
+        "model": "gpt-6.1-sol",
+        "permission_mode": "default",
+        "session_id": "session_id-986cc01d411574d7",
+        "transcript_path": "/fixture/transcript.jsonl",
+        "turn_id": "turn_id-3ca4bb51faa0d475"
+      },
+      "kind": "turn.interrupted"
+    }
+  ]
+}

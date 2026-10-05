@@ -50,6 +50,15 @@ class ReplyScreen(pyte.HistoryScreen):
     def write_process_input(self, data):
         self.replies.extend(data.encode("utf-8"))
 
+    def delete_lines(self, count=None):
+        # Pyte's sparse-buffer deletion skips absent source rows, retaining
+        # stale destination text. Materialize blank sources before shifting.
+        top, bottom = self.margins or (0, self.lines - 1)
+        if top <= self.cursor.y <= bottom:
+            for y in range(self.cursor.y, bottom + 1):
+                self.buffer[y]
+        super().delete_lines(count)
+
 
 class Terminal:
     backend = "pyte"

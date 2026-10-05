@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tempfile
 
-from .hooks import configuration, toml_value
+from .hooks import configuration
 from .snapshots import fixture
 from .policy import byte_size, load_policy
 
@@ -65,6 +65,9 @@ def main():
     history = commands.add_parser("history", help="List saved sessions or print a session journal")
     history.add_argument("directory", type=Path)
     history.add_argument("--session")
+    actions = commands.add_parser("actions", help="Replay tool observations and ambiguous checkpoint correlations")
+    actions.add_argument("directory", type=Path)
+    actions.add_argument("--session", required=True)
     diff = commands.add_parser("diff", help="Compare two saved checkpoint commits")
     diff.add_argument("directory", type=Path)
     diff.add_argument("before")
@@ -98,6 +101,13 @@ def main():
         except (ValueError, OSError, sqlite3.Error, subprocess.CalledProcessError) as exc:
             parser.exit(2, "Labradour: " + str(exc) + "\n")
         print(json.dumps(result, indent=2))
+    elif args.mode == "actions":
+        from .recorder import read_history
+        from .adapters.correlation import project
+        sessions = {s["id"]: s for s in read_history(args.directory)}
+        if args.session not in sessions:
+            parser.error("unknown recording session")
+        print(json.dumps(project(read_history(args.directory, args.session), sessions[args.session]["status"]), indent=2))
     elif args.mode == "history":
         from .recorder import read_history
         print(json.dumps(read_history(args.directory, args.session), indent=2))
@@ -167,21 +177,24 @@ def main():
             if args.hooks:
                 if args.demo or Path(command[0]).name != args.hooks:
                     parser.error("--hooks must match the launched codex or claude executable")
-                config = configuration(args.hooks, directory=events)
-                if args.hooks == "claude":
-                    settings = root / "claude-hooks.json"
-                    settings.write_text(json.dumps(config))
-                    command = [command[0], "--settings", str(settings), *command[1:]]
-                else:
-                    command = [command[0], "--no-daemon", "-c", "hooks=" + toml_value(config["hooks"]), *command[1:]]
+                from .adapters.launch import compose
+                try:
+                    command = compose(args.hooks, command, root, workspace, events, authenticated=bool(args.record))
+                except (ValueError, OSError) as exc:
+                    parser.error(str(exc))
             if args.record:
                 print("Labradour effective capture policy:", file=sys.stderr)
                 print(json.dumps(policy.describe(workspace, [args.record, events]), indent=2), file=sys.stderr)
             from .ui import Harness
             harness = Harness(command, workspace, events, args.side, args.agent_width, args.activity_height,
-                              args.watch, args.watch_backend, args.record, policy, collector=args.collector)
+                              args.watch, args.watch_backend, args.record, policy,
+                              collector=args.collector or bool(args.hooks and args.record),
+                              adapter_provider=args.hooks if args.record else None)
             try:
                 curses.wrapper(harness.run)
+                if harness.child and harness.child.status is None:
+                    print("Labradour: owned child PID %s was not reaped after TERM/KILL; recording has a cleanup gap." %
+                          harness.child.pid, file=sys.stderr)
             except (OSError, ValueError, sqlite3.Error, subprocess.CalledProcessError) as exc:
                 parser.exit(2, "Labradour: " + str(exc) + "\n")
 

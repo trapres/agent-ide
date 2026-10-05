@@ -18,7 +18,7 @@ python3 -m labradour run --workspace /path/to/project \
   --record /path/to/labradour-recording -- codex
 ```
 
-Add `--hooks codex` or `--hooks claude` for launch-scoped provider hooks. Follow the provider's normal trust and approval prompts. Filesystem recording works without hooks; it labels observations as external/unknown rather than assigning them to an agent tool. Hook coverage still needs provider-specific verification.
+Add `--hooks codex` or `--hooks claude` for launch-scoped provider hooks. With `--record`, these automatically enable authenticated normalization and bounded boundary captures. Without recording, they retain observation-only raw events. Follow normal provider trust and approval prompts. Filesystem changes remain external/unknown. Core macOS native delivery, denial/concurrency and Linux Codex delivery now have measured evidence; the broader native gate remains open; see [Phase 2 notes](docs/Phase2.md) for receipts, gaps, and the manual gate.
 
 Recording stores included workspace contents locally, including untracked and already modified files. Default exclusions cover Git administration, dependency/build directories, common credential directories, `.env` files, and recorder data. See [Phase 1 notes](docs/Phase1.md) for the exact policy and limits. A recording is intended for one workspace.
 
@@ -185,3 +185,7 @@ Phase 4 will turn Activity into an action/effect list with filters and historica
 | Binary change or recording gap | Metadata and available evidence |
 
 Multi-effect tool calls will offer a file/effect picker inside the review panes. Phase 5 adds optional gitdiffviz graphical exports through an explicit open action. Reviewing an event will use recorded evidence and will not rerun its command. Exact controls for these features will be added here when implemented.
+
+## Inspecting correlation before the review UI
+
+Run `python3 -m labradour history RECORDING` to find a session, then `python3 -m labradour actions RECORDING --session SESSION_ID`. This prints replayed tool states, explicit actor relationships, output references, checkpoint effects, candidate calls, and evidence gaps. The curses panes still show journal cards; selecting a card does not yet navigate this projection. A candidate call never establishes exclusive file ownership. See [Phase2TestGuide.md](docs/Phase2TestGuide.md) for scenarios and interpretation.
