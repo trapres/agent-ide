@@ -32,7 +32,7 @@ def clip(text, width):
 
 class Harness:
     def __init__(self, command, workspace, events, side="left", agent_fraction=.5, activity_fraction=.5,
-                 watch=False, watch_backend="native", recording=None, policy=None):
+                 watch=False, watch_backend="native", recording=None, policy=None, collector=False):
         self.command, self.workspace, self.events = command, workspace, Path(events)
         self.side = side
         self.agent_fraction, self.activity_fraction = agent_fraction, activity_fraction
@@ -49,6 +49,8 @@ class Harness:
         self.watcher = None
         self.recording = recording
         self.recorder = None
+        self.collector_enabled = collector
+        self.adapter_collector = None
         from .policy import CapturePolicy
         self.policy = policy or CapturePolicy()
         self.policy_view = bool(recording)
@@ -265,7 +267,19 @@ class Harness:
         h, w = geometry.get("agent", next(iter(geometry.values()), Rect(0, 0, 26, 82))).content_size
         self.terminal = Terminal(h, w)
         child_env = dict(os.environ, LABRADOUR_EVENTS_DIR=str(self.events.resolve()))
-        self.child = PtyProcess(self.command, self.workspace, h, w, child_env, paused=bool(self.recording))
+        for key in ("LABRADOUR_COLLECTOR_SOCKET", "LABRADOUR_COLLECTOR_TOKEN", "LABRADOUR_COLLECTOR_SPOOL",
+                    "LABRADOUR_LAUNCH_ID", "LABRADOUR_WORKSPACE_ID"):
+            child_env.pop(key, None)
+        if self.collector_enabled:
+            from .adapters.collector import Collector
+            self.adapter_collector = Collector(self.workspace, self.events)
+            child_env.update(self.adapter_collector.environment())
+        try:
+            self.child = PtyProcess(self.command, self.workspace, h, w, child_env, paused=bool(self.recording))
+        except Exception:
+            if self.adapter_collector:
+                self.adapter_collector.close()
+            raise
         # Fork the PTY child before starting watchdog's threads.
         old_handlers = {}
         for sig in (signal.SIGTERM, signal.SIGHUP):
@@ -277,8 +291,11 @@ class Harness:
                 self.notice = "Capture policy shown in Visualization | Ctrl-] p toggles policy"
                 self.paint(screen, geometry)
                 self.recorder = Recorder(self.workspace, self.recording, excluded=[self.events],
-                                         backend=self.watch_backend, events=self.events, policy=self.policy)
+                                         backend=self.watch_backend, events=self.events, policy=self.policy,
+                                         adapter_collector=self.adapter_collector)
                 self.recorder.start()
+                if self.adapter_collector:
+                    self.adapter_collector.start()
                 self.child.release()
             elif self.watch_enabled:
                 from .filesystem import WorkspaceWatch
@@ -320,10 +337,14 @@ class Harness:
             os.write(1, b"\x1b[?2004l")
             try:
                 self.child.close()
+                if self.adapter_collector:
+                    self.adapter_collector.close()
                 if self.recorder:
                     self.recorder.close()
                 elif self.watcher:
                     self.watcher.close()
             finally:
+                if self.adapter_collector and not self.adapter_collector.stop.is_set():
+                    self.adapter_collector.close()
                 for sig, handler in old_handlers.items():
                     signal.signal(sig, handler)

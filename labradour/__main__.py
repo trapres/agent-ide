@@ -43,6 +43,7 @@ def main():
     run.add_argument("--record", type=Path, help="Persist journal and content checkpoints in this private directory")
     run.add_argument("--events", type=Path, help="Hook spool directory; temporary by default")
     run.add_argument("--hooks", choices=["claude", "codex"], help="Add observation-only launch-scoped hooks")
+    run.add_argument("--collector", action="store_true", help="Enable Phase 2 authenticated adapter collection (requires --record)")
     run.add_argument("--side", choices=["left", "right"], default="left")
     run.add_argument("--agent-width", type=float, default=.5)
     run.add_argument("--activity-height", type=float, default=.5)
@@ -76,8 +77,12 @@ def main():
     hooks = commands.add_parser("hook-config", help="Print observation-only probe configuration; installs nothing")
     hooks.add_argument("provider", choices=["codex", "claude"])
     commands.add_parser("doctor", help="List prerequisites without reading credentials")
+    commands.add_parser("adapter-coverage", help="Show native provider categories still requiring verification")
     args = parser.parse_args()
-    if args.mode == "policy":
+    if args.mode == "adapter-coverage":
+        from .adapters.events import coverage
+        print(json.dumps(coverage(), indent=2))
+    elif args.mode == "policy":
         try:
             policy = policy_from_args(args)
         except (ValueError, OSError) as exc:
@@ -129,6 +134,8 @@ def main():
                 print("%s: missing; install requirements.txt with this Python interpreter" % package)
         print("Terminal backend: pyte with xterm extensions")
     else:
+        if args.collector and not args.record:
+            parser.error("--collector requires --record")
         try:
             policy = policy_from_args(args)
         except (ValueError, OSError) as exc:
@@ -172,7 +179,7 @@ def main():
                 print(json.dumps(policy.describe(workspace, [args.record, events]), indent=2), file=sys.stderr)
             from .ui import Harness
             harness = Harness(command, workspace, events, args.side, args.agent_width, args.activity_height,
-                              args.watch, args.watch_backend, args.record, policy)
+                              args.watch, args.watch_backend, args.record, policy, collector=args.collector)
             try:
                 curses.wrapper(harness.run)
             except (OSError, ValueError, sqlite3.Error, subprocess.CalledProcessError) as exc:

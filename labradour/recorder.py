@@ -22,7 +22,9 @@ EXCLUDED = DEFAULT_EXCLUDED
 
 class Recorder:
     def __init__(self, workspace, directory, excluded=(), backend="native", max_file=8 * 1024 * 1024,
-                 max_capture=64 * 1024 * 1024, quota=512 * 1024 * 1024, interval=2, events=None, policy=None):
+                 max_capture=64 * 1024 * 1024, quota=512 * 1024 * 1024, interval=2, events=None, policy=None,
+                 adapter_collector=None):
+        self.adapter_collector = adapter_collector
         self.policy = policy or CapturePolicy(max_file_bytes=max_file, max_capture_bytes=max_capture,
                                               storage_budget_bytes=quota)
         self.workspace = Path(workspace).resolve()
@@ -196,6 +198,8 @@ class Recorder:
             raw = json.dumps(record)
         if len(raw.encode()) > self.policy.max_event_bytes:
             essential = ("intent", "commit", "before_commit", "tree", "reason", "quality", "capture_policy_file")
+            if kind == "adapter.event":
+                essential = ("kind", "provider", "launch_id", "content_digest")
             record["payload"] = {k: payload[k] for k in essential if k in payload and
                                  isinstance(payload[k], (str, int, bool, type(None))) and len(str(payload[k])) <= 256}
             record["payload"].update(payload_truncated=True, original_bytes=len(raw.encode()))
@@ -396,6 +400,10 @@ class Recorder:
         self.append("session.started", {"workspace": str(self.workspace), "backend": self.watcher.backend,
                     "capture_policy": self.policy.describe(self.workspace, self.excluded),
                     "capture_policy_file": self.policy_file})
+        if self.adapter_collector:
+            from .adapters.events import coverage
+            self.append("adapter.foundation", {"launch_id": self.adapter_collector.launch_id,
+                        "coverage": coverage(), "transport": "authenticated-unix-socket"})
         self.capture("baseline")
         self.capture("startup reconciliation")
         self.thread = threading.Thread(target=self._run, name="labradour-recorder", daemon=True)
@@ -418,6 +426,34 @@ class Recorder:
                 self.append("collector.invalid", {"path": path.name, "error": str(exc)})
             self.seen.add(path.name)
 
+    def collect_adapters(self):
+        collector = self.adapter_collector
+        if not collector or self.suspended:
+            return
+        pending = collector.pending()
+        from .adapters.collector import encode
+        batch = []
+        for _, event in pending:
+            event_id = "adapter:" + collector.launch_id + ":" + event["event_id"]
+            digest = hashlib.sha256(encode(event)).hexdigest()
+            prior = self.db.execute("SELECT record FROM events WHERE event_id=?", (event_id,)).fetchone()
+            if prior and json.loads(prior[0])["payload"].get("content_digest") != digest:
+                batch.append(("collector.conflict", {"adapter_event_id": event["event_id"],
+                              "launch_id": collector.launch_id, "quality": "conflicting retry; original fact retained"},
+                              "authenticated-collector", None))
+                self.failed = True
+            else:
+                batch.append(("adapter.event", dict(event, launch_id=collector.launch_id, content_digest=digest),
+                              "authenticated-collector", event_id))
+        records = self.append_many(batch)
+        # ACK the spool only after the single writer committed this whole batch.
+        if len(records) == len(pending) and not self.suspended:
+            collector.acknowledge([path for path, _ in pending])
+        health = collector.health()
+        if health:
+            self.failed = True
+            self.append("collector.rejected", health)
+
     def _run(self):
         next_scan = time.monotonic() + self.interval
         try:
@@ -425,6 +461,7 @@ class Recorder:
                 if self.suspended:
                     break
                 self.collect_hooks()
+                self.collect_adapters()
                 records = self.watcher.drain()
                 self.metrics.update(watcher_queue=self.watcher.events.qsize(), watcher_dropped=self.watcher.dropped)
                 for record in records:
@@ -467,6 +504,9 @@ class Recorder:
         try:
             if self.history and not self.suspended:
                 self.collect_hooks()
+                # Collector is stopped by the host before shutdown drain.
+                for _ in range(4):
+                    self.collect_adapters()
                 for record in self.watcher.drain(4096):
                     self.append("filesystem.observed", record["payload"], "watchdog", record["event_id"])
                 self.capture("session end")

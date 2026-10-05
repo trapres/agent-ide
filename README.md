@@ -6,6 +6,8 @@ For a hands-on walkthrough of current behavior, recorder checks, and features st
 
 The proposed integration contract for customizable visualization plugins is in [VizApi.md](docs/VizApi.md).
 
+Phase 2 work is tracked in [Tasks.md](Tasks.md). The opt-in authenticated adapter collector, fixture, and provider coverage matrix are described in [Phase2.md](docs/Phase2.md); native provider mappings remain the next slice.
+
 The repository contains the **Phase 0 harness and the accepted Phase 1 generic recorder**. The full review MVP remains later work. It requires Python 3.9+, Git, pyte, watchdog, and wcwidth. Dependency versions are in [requirements.txt](requirements.txt); use `python3 -m pip install -r requirements.txt` with the interpreter you will launch. Automated acceptance passes on macOS/Python 3.9.6 and Linux arm64/Python 3.11.17 in Docker. Measurements and reproduction commands are in [Recorder acceptance](docs/RecorderAcceptance.md).
 
 Start the deterministic fake agent from the repository root:

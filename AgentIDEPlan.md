@@ -1,6 +1,8 @@
 # Labradour implementation plan
 
-Date: 2026-10-02. Status: Phase 0 harness implemented; Phase 1 generic recorder implemented and accepted by automated macOS/Linux checks; native adapter integration is next.
+Date: 2026-10-05. Status: Phase 0 harness implemented; Phase 1 generic recorder accepted; Phase 2 adapter foundation implemented with 70 automated tests passing on macOS/Linux; native provider integration is next.
+
+Current slices are tracked in [Tasks.md](Tasks.md); the adapter foundation, event contract, and remaining native coverage are documented in [docs/Phase2.md](docs/Phase2.md).
 
 MVP UI specification: [AgentUI.md](AgentUI.md). That document defines layout, focus, activity selection, and the pluggable visualization contract; this plan defines capture, storage, and delivery. Updated to use the three-pane MVP layout.
 
