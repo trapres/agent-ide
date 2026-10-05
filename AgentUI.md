@@ -145,6 +145,8 @@ When a graphical companion is available, show an explicit “Open graphical view
 
 ## 6. Pluggable visualizer contract
 
+The detailed proposed API, plugin manifests, evidence access, terminal rendering, subprocess protocol, and export lifecycle are defined in [docs/VizApi.md](docs/VizApi.md). This section describes how that contract fits the review UI; the plugin runtime is not implemented yet.
+
 Separate provider adapters (event capture) from visualizer plugins (presentation). Proposed logical interface:
 
 ```text

@@ -4,6 +4,8 @@ An ncurses IDE for watching CLI agents work. Architecture: [AgentIDEPlan.md](Age
 
 For a hands-on walkthrough of current behavior, recorder checks, and features still planned, see [Phase 1 manual testing guide](docs/Phase1TestGuide.md).
 
+The proposed integration contract for customizable visualization plugins is in [VizApi.md](docs/VizApi.md).
+
 The repository contains the **Phase 0 harness and the accepted Phase 1 generic recorder**. The full review MVP remains later work. It requires Python 3.9+, Git, pyte, watchdog, and wcwidth. Dependency versions are in [requirements.txt](requirements.txt); use `python3 -m pip install -r requirements.txt` with the interpreter you will launch. Automated acceptance passes on macOS/Python 3.9.6 and Linux arm64/Python 3.11.17 in Docker. Measurements and reproduction commands are in [Recorder acceptance](docs/RecorderAcceptance.md).
 
 Start the deterministic fake agent from the repository root:
