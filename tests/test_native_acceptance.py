@@ -13,6 +13,52 @@ spec.loader.exec_module(acceptance)
 
 
 class NativeAcceptanceTests(unittest.TestCase):
+    def test_plugin_fixture_is_local_and_does_not_install_globally(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = acceptance.prepare('claude', temporary, True, plugin_observer=True)
+            self.assertIn('--plugin-dir', fixture['launch_command'])
+            self.assertEqual(fixture['plugin_observer']['layer'], 'plugin')
+            config = json.loads(Path(fixture['plugin_observer']['settings']).read_text())
+            self.assertEqual(set(config['hooks']), {'SessionStart', 'Stop', 'SessionEnd'})
+            fixture = acceptance.prepare('codex', temporary, plugin_observer=True)
+            self.assertEqual(len(fixture['plugin_setup_commands']), 2)
+            root = Path(fixture['workspace']).parent
+            catalog = json.loads((root/'.agents/plugins/marketplace.json').read_text())
+            source = catalog['plugins'][0]['source']['path']
+            self.assertTrue((root/source/'.codex-plugin/plugin.json').is_file())
+
+    def test_managed_fixture_does_not_install_policy_or_allow_bypass(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            for provider in ('claude', 'codex'):
+                fixture = acceptance.prepare(provider, temporary, managed_observer=True, managed_only=True)
+                self.assertFalse(fixture['managed_policy']['installed'])
+                self.assertTrue(fixture['managed_policy']['managed_only'])
+                path = Path(fixture['managed_observer']['settings'])
+                self.assertIn(Path(temporary).resolve(), path.parents)
+                self.assertNotIn('bypass', path.read_text())
+                if provider == 'claude':
+                    self.assertTrue(json.loads(path.read_text())['allowManagedHooksOnly'])
+                else:
+                    self.assertIn('allow_managed_hooks_only = true', path.read_text())
+            with self.assertRaisesRegex(ValueError, 'requires'):
+                acceptance.prepare('claude', temporary, managed_only=True)
+
+    def test_suppressed_delivery_keeps_independent_observer_evidence_unmatched(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = acceptance.prepare('codex', temporary, plugin_observer=True, managed_observer=True, managed_only=True)
+            root = Path(fixture['recording']).parent
+            Path(fixture['managed_observer']['log']).write_text(json.dumps({'hook':'SessionStart','session_id':'native'})+'\n')
+            Path(fixture['plugin_observer']['log']).write_text(json.dumps({'hook':'Stop','session_id':None})+'\n')
+            delivery = [{'sequence':1,'event_id':'delivery','session_id':'host','kind':'adapter.delivery',
+                         'payload':{'provider':'codex','status':'no-delivery','counts':{}}}]
+            with patch.object(acceptance, 'read_history', side_effect=lambda d,s=None: delivery if s else [{'id':'host','status':'completed-with-gaps','started_ns':1}]):
+                result = acceptance.summarize(root/'recording')
+            self.assertEqual(result['adapter_delivery_status'], [{'provider':'codex','status':'no-delivery','counts':{}}])
+            self.assertEqual(result['managed_observer']['hook_counts_for_native_session'], {})
+            self.assertEqual(result['managed_observer']['unmatched_hook_counts'], {'SessionStart':1})
+            self.assertEqual(result['plugin_observer']['hook_counts_for_native_session'], {})
+            self.assertEqual(result['plugin_observer']['unmatched_hook_counts'], {'Stop':1})
+
     def test_prepare_is_private_and_adds_only_local_observer(self):
         with tempfile.TemporaryDirectory() as temporary:
             result = acceptance.prepare('codex', temporary, True)

@@ -90,7 +90,7 @@ python3 -m labradour prune /path/to/private-recording --keep-sessions 5 --apply
 
 Retention removes whole older sessions, compacts their journal rows, deletes their private session refs/policy files, and reclaims unreferenced loose Git objects. Shared/surviving evidence and packed objects remain protected. The writer lock prevents cleanup during recording. Interrupted pruning resumes on the next launch or applied prune; owned abandoned staging directories are cleaned automatically. Disk-full failures stop recording while the agent continues, with a best-effort reserved health-slot diagnostic. See [UIGuide.md](UIGuide.md) for recovery and retention limits.
 
-Default geometry is half-width Agent plus stacked quarter-screen review panes. Terminals smaller than 100×28 use the focused pane full screen. Session layout adjustments are not yet persisted. Arbitrary arrangements are specified in Phase 3.
+Default geometry is half-width Agent plus stacked quarter-screen review panes. Terminals smaller than 100×28 use the focused pane full screen. Session layout adjustments are not yet persisted. [Phase 3's completed specification](docs/Phase3.md) defines arbitrary split trees, named presets, editing, persistence and focus/resize acceptance; Phase 4 implements those features.
 
 Run verification and probes:
 

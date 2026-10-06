@@ -1,0 +1,312 @@
+{
+  "schema_version": 1,
+  "measured_at": "2026-10-05T16:16:04.113553+00:00",
+  "scope": "Additional native local-plugin and file-based managed-policy measurements only. Human visual acceptance, authenticated Linux Claude and deployment-specific MDM/cloud policy remain manual.",
+  "runs": {
+    "claude_local_plugin": {
+      "schema_version": 1,
+      "scope": "Journal evidence only; human acceptance checks remain separate.",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "python": "3.9.6",
+      "installed_versions_at_review": {
+        "claude": "2.1.234 (Claude Code)"
+      },
+      "session": {
+        "id": "4cbc733bf3314f29aabd4f08e89774a1",
+        "started_ns": 1791215423369267000,
+        "status": "completed"
+      },
+      "hook_counts": {
+        "SessionStart": 1,
+        "UserPromptSubmit": 1,
+        "PreToolUse": 1,
+        "PostToolUse": 1,
+        "Stop": 1,
+        "SessionEnd": 1
+      },
+      "tool_observation_counts": {
+        "Read": 2
+      },
+      "identity_field_counts": {
+        "provider_session_id": 6,
+        "call_id": 2
+      },
+      "boundary_counts": {
+        "session-start": 1,
+        "prompt": 1,
+        "before": 1,
+        "after": 1,
+        "turn-end": 1,
+        "session-end": 1
+      },
+      "unavailable_boundaries": 0,
+      "action_states": {
+        "completed": 1
+      },
+      "result_outcomes": {
+        "succeeded": 1
+      },
+      "action_correlation": {
+        "boundary-correlated": 1
+      },
+      "effects": {
+        "count": 2,
+        "shared": 0,
+        "exclusive_ownership_claims": 0
+      },
+      "actors": 0,
+      "gap_kinds": {},
+      "cleanup_gaps": 0,
+      "adapter_delivery_status": [
+        {
+          "provider": "claude",
+          "status": "observed",
+          "counts": {
+            "SessionStart": 1,
+            "UserPromptSubmit": 1,
+            "PreToolUse": 1,
+            "PostToolUse": 1,
+            "Stop": 1,
+            "SessionEnd": 1
+          }
+        }
+      ],
+      "native_gate": "requires scenario and human evidence; not inferred from callback counts",
+      "existing_observer": {
+        "layer": "project",
+        "settings_unchanged": true,
+        "hook_counts_for_native_session": {
+          "SessionStart": 1,
+          "Stop": 1,
+          "SessionEnd": 1
+        },
+        "unmatched_hook_counts": {}
+      },
+      "plugin_observer": {
+        "layer": "plugin",
+        "settings_unchanged": true,
+        "hook_counts_for_native_session": {
+          "SessionStart": 1,
+          "Stop": 1,
+          "SessionEnd": 1
+        },
+        "unmatched_hook_counts": {}
+      }
+    },
+    "codex_linux_additive_managed_and_plugin": {
+      "schema_version": 1,
+      "scope": "Journal evidence only; human acceptance checks remain separate.",
+      "platform": "Linux-7.0.12-linuxkit-aarch64-with-glibc2.41",
+      "python": "3.11.17",
+      "installed_versions_at_review": {
+        "codex": "codex-cli 0.160.0"
+      },
+      "session": {
+        "id": "b83a1434e91b4fedadfbd88b6c3b3dc5",
+        "started_ns": 1791215461834657254,
+        "status": "completed"
+      },
+      "hook_counts": {
+        "SessionStart": 2,
+        "UserPromptSubmit": 3,
+        "Stop": 3,
+        "SessionEnd": 2,
+        "PreToolUse": 2,
+        "PostToolUse": 2,
+        "PermissionRequest": 1
+      },
+      "tool_observation_counts": {
+        "Bash": 5
+      },
+      "identity_field_counts": {
+        "provider_session_id": 15,
+        "turn_id": 11,
+        "call_id": 4
+      },
+      "boundary_counts": {
+        "session-start": 2,
+        "prompt": 3,
+        "turn-end": 3,
+        "session-end": 2,
+        "before": 2,
+        "after": 2
+      },
+      "unavailable_boundaries": 0,
+      "action_states": {
+        "completed": 2,
+        "incomplete": 1
+      },
+      "result_outcomes": {
+        "unknown": 2
+      },
+      "action_correlation": {
+        "boundary-correlated": 2,
+        "incomplete-evidence": 1
+      },
+      "effects": {
+        "count": 1,
+        "shared": 0,
+        "exclusive_ownership_claims": 0
+      },
+      "actors": 0,
+      "gap_kinds": {},
+      "cleanup_gaps": 0,
+      "native_gate": "requires scenario and human evidence; not inferred from callback counts",
+      "existing_observer": {
+        "layer": "project",
+        "settings_unchanged": true,
+        "hook_counts_for_native_session": {
+          "SessionStart": 2,
+          "Stop": 3,
+          "SessionEnd": 2
+        },
+        "unmatched_hook_counts": {}
+      },
+      "plugin_observer": {
+        "layer": "plugin",
+        "settings_unchanged": true,
+        "hook_counts_for_native_session": {
+          "SessionStart": 1,
+          "Stop": 2,
+          "SessionEnd": 1
+        },
+        "unmatched_hook_counts": {}
+      },
+      "managed_observer": {
+        "layer": "managed",
+        "settings_unchanged": true,
+        "hook_counts_for_native_session": {
+          "SessionStart": 2,
+          "UserPromptSubmit": 3,
+          "Stop": 3,
+          "SessionEnd": 2,
+          "PreToolUse": 2,
+          "PostToolUse": 2
+        },
+        "unmatched_hook_counts": {},
+        "installed_policy_matches_fixture": true
+      }
+    },
+    "codex_linux_managed_only": {
+      "schema_version": 1,
+      "scope": "Journal evidence only; human acceptance checks remain separate.",
+      "platform": "Linux-7.0.12-linuxkit-aarch64-with-glibc2.41",
+      "python": "3.11.17",
+      "installed_versions_at_review": {
+        "codex": "codex-cli 0.160.0"
+      },
+      "session": {
+        "id": "2f461b1fb59c4deab978f3929e8f48f5",
+        "started_ns": 1791216457829734674,
+        "status": "completed-with-gaps"
+      },
+      "hook_counts": {},
+      "tool_observation_counts": {},
+      "identity_field_counts": {},
+      "boundary_counts": {},
+      "unavailable_boundaries": 0,
+      "action_states": {},
+      "result_outcomes": {},
+      "action_correlation": {},
+      "effects": {
+        "count": 1,
+        "shared": 0,
+        "exclusive_ownership_claims": 0
+      },
+      "actors": 0,
+      "gap_kinds": {},
+      "cleanup_gaps": 0,
+      "adapter_delivery_status": [
+        {
+          "provider": "codex",
+          "status": "no-delivery",
+          "counts": {}
+        }
+      ],
+      "native_gate": "requires scenario and human evidence; not inferred from callback counts",
+      "existing_observer": {
+        "layer": "project",
+        "settings_unchanged": true,
+        "hook_counts_for_native_session": {},
+        "unmatched_hook_counts": {}
+      },
+      "managed_observer": {
+        "layer": "managed",
+        "settings_unchanged": true,
+        "hook_counts_for_native_session": {},
+        "unmatched_hook_counts": {
+          "SessionStart": 2,
+          "UserPromptSubmit": 2,
+          "Stop": 2,
+          "SessionEnd": 2
+        },
+        "installed_policy_matches_fixture": true
+      }
+    }
+  },
+  "observations": {
+    "claude_local_plugin": {
+      "native_trust_review": true,
+      "native_prompt": "Read-only marker via Read; no edit",
+      "sources": [
+        "project",
+        "local plugin via --plugin-dir",
+        "Labradour launch settings"
+      ],
+      "settings_unchanged": true
+    },
+    "codex_additive": {
+      "native_trust_review": true,
+      "sources": [
+        "user",
+        "project",
+        "installed local plugin",
+        "file-based requirements.toml",
+        "Labradour launch settings"
+      ],
+      "native_prompt": "Marker-only response followed by cat readme.txt; namespace sandbox could not start, so that harmless read received native approval",
+      "installed_policy_matches_fixture_at_report": true,
+      "callback_counts_may_include_native_trust_restart": true
+    },
+    "codex_managed_only": {
+      "native_response_visible": "LABRADOUR_MANAGED_ONLY_OK",
+      "nonmanaged_callbacks": 0,
+      "fresh_project_observer_log_absent": true,
+      "installed_plugin_log_unchanged": true,
+      "managed_observer_linkage": "unmatched: no Labradour provider-session facts were delivered",
+      "expected_limit": "Managed-only policy excludes Labradour launch hooks. Recording preserves adapter.delivery no-delivery and completed-with-gaps; no policy bypass."
+    }
+  },
+  "automated_validation": {
+    "tests": 106,
+    "macOS": {
+      "python": "3.9.6",
+      "seconds": 34.616
+    },
+    "Linux": {
+      "python": "3.11.17",
+      "seconds": 15.347
+    },
+    "final_report_regressions": "Seven acceptance-helper checks additionally pass on both platforms."
+  },
+  "cleanup": {
+    "temporary_container_policy_removed": true,
+    "temporary_codex_plugin_and_marketplace_removed": true,
+    "host_managed_policy_files_modified": false,
+    "container_retained_for_manual_claude_signin": true
+  },
+  "remaining": {
+    "linux_claude_authentication": {
+      "status": "blocked-on-sign-in",
+      "checked": {
+        "loggedIn": false,
+        "authMethod": "none",
+        "apiProvider": "firstParty"
+      }
+    },
+    "linux_claude_tools_and_managed_policy": "not-run; requires sign-in",
+    "human_terminal_visual_input_review": "not-run",
+    "deployment_specific_mdm_cloud_and_other_plugins": "not-certified; applicability must be recorded by the user"
+  },
+  "native_signoff": "open; use docs/Phase2TestGuide.md section 9"
+}

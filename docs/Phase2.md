@@ -2,6 +2,8 @@
 
 Date: 2026-10-05. Status: **adapter/correlation implementation and core macOS native delivery/composition measured; broader native gate remains open**.
 
+October 6 handoff: the user reported the Linux Claude sign-in/check workflow looked good and authorized Phase 3. This adds user acceptance of the exercised workflow; unreported policy/visual/deployment rows remain open for full broad evidence sign-off. See [Phase3.md](Phase3.md#phase-2-handoff).
+
 The slices and follow-ups are tracked in [Tasks.md](../Tasks.md). Phase 1's recorder remains the single writer for saved facts and checkpoints. This slice introduces a transport and provider-neutral event contract without changing existing provider hook configuration or assigning filesystem observations to tools.
 
 ## Available foundation
@@ -204,3 +206,14 @@ Pyte's sparse delete-line behavior could retain text where a blank source row sh
 Reproduction tools: `tools/native_gate_driver.py`, `tools/terminal_oracle.py`, and `tools/Dockerfile.native-acceptance`. Detailed prompts, expected incomplete outcomes, normal trust review, container sign-in and trace privacy are in [Phase2TestGuide.md](Phase2TestGuide.md). The broad gate still needs authenticated Linux Claude, human visual acceptance, and managed/plugin settings compatibility. It is deliberately tracked separately from the implemented fixes and measured scenarios.
 
 Current automated acceptance: **103 tests pass on macOS/Python 3.9.6 (34.576 s) and Linux/Python 3.11.17 (15.621 s)**. These include scoped concurrency-driver evidence and sparse-row terminal regressions.
+
+
+## Broad native acceptance sign-off preparation
+
+The additional [sign-off evidence](native-signoff-acceptance.json) verifies native Claude plugin hooks alongside project/launch hooks, and Linux Codex plugin hooks alongside additive file-based managed policy. A separate managed-only Codex run suppresses project/plugin/Labradour hooks while managed observers and native input remain usable. The recorder retains no-delivery evidence instead of inventing callbacks or bypassing policy. These local cases do not certify MDM/cloud policy or arbitrary third-party plugins.
+
+`native_acceptance.py prepare` now accepts `--plugin-observer`, `--managed-observer` and `--managed-only`. Preparation writes private fixtures only: Claude plugins load via a launch flag, Codex installation commands are printed for an isolated test home, and managed policy files are never installed by the helper. Reports separately verify each observer/settings hash and the staged Linux policy hash. Independent observer records without delivered Labradour session identities stay explicitly unmatched.
+
+The remaining manual gate is now a concrete [sign-off runbook](Phase2TestGuide.md#9-manual-sign-off-runbook): Linux Claude sign-in and tools/policies, terminal colors/input/focus/scrolling/resize/shutdown, deployment applicability, evidence retention and explicit closure rules. Tasks.md stays unchecked until that evidence or accepted scoped limitations exists. Linux Claude was still signed out during this preparation; no authenticated Linux Claude outcome is inferred from host credentials or Codex results.
+
+Current regression validation: **106 tests pass on macOS/Python 3.9.6 (34.616 s) and Linux/Python 3.11.17 (15.347 s)**, including private plugin/policy fixture preparation and unmatched observer evidence under suppressed delivery.

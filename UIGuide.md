@@ -151,7 +151,9 @@ Typing `j`, `k`, or `f` in the Agent pane sends those characters to the agent. F
 | Ctrl-] then `b` | Scroll Agent terminal history back |
 | Ctrl-] then `n` | Return Agent terminal to live output |
 
-Resize your outer terminal normally; Labradour updates the Agent's PTY dimensions. Below 100 columns or 28 rows, the focused pane fills the screen. Focus another pane to see it. Layout changes last for the current session; saved preferences and arbitrary pane arrangements are later work.
+Resize your outer terminal normally; Labradour updates the Agent's PTY dimensions. Below 100 columns or 28 rows, the focused pane fills the screen. Focus another pane to see it. Layout changes last for the current session.
+
+Phase 3 now specifies named presets, nested row/column splits, Agent above the review panes, reordered panes, a keyboard editor, and explicit user/workspace preference saves. These remain Phase 4 implementation work: the current launcher does not accept `--layout`/`--layout-config` or load layout JSON, and Ctrl-] then `:` does not open an editor yet. See [the layout contract](AgentUI.md#2-layout-configuration-and-resizing) and [Phase 3 examples and acceptance scenarios](docs/Phase3.md).
 
 ## Exit and review saved history
 

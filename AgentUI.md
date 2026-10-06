@@ -1,18 +1,18 @@
 # Labradour MVP UI specification
 
-Date: 2026-10-02. Status: proposed. Companion architecture: [AgentIDEPlan.md](AgentIDEPlan.md).
+Date: 2026-10-06. Status: Phase 3 layout specification complete; runtime implementation belongs to Phase 4. Companion architecture: [AgentIDEPlan.md](AgentIDEPlan.md).
 
-The layout rules below describe the initial default preset. Phase 3 of the implementation plan will expand this specification to arbitrary arrangements of the same three panes before Phase 4 implements the review MVP. That expansion will define nested splits, pane ordering, presets, configuration validation, editing commands, and state-preserving layout changes; Activity-above-Visualization will be a default rather than a universal constraint.
+The layout contract below supports arbitrary binary arrangements of the same three panes. Activity-above-Visualization is the default preset. The current harness still implements only its existing side/ratio controls, without persistence or a layout editor. Proposed commands and configuration in this document are implementation requirements, not commands available today. Phase 3 review scenarios and Phase 4 implementation gates are in [docs/Phase3.md](docs/Phase3.md).
 
 ## 1. Screen structure
 
 The MVP has exactly three primary panes:
 
-- **Agent:** the interactive native Codex, Claude, or other CLI, occupying half the usable screen width and its full height.
-- **Activity:** a tool/actor/action log occupying the upper half of the other side.
-- **Visualization:** the selected action's visual explanation occupying the lower half of the other side.
+- **Agent:** the interactive native Codex, Claude, or other CLI.
+- **Activity:** a tool/actor/action log.
+- **Visualization:** the selected action's visual explanation.
 
-The default is agent on the left. Users can move it to the right; Activity remains above Visualization. Ratios apply to the area inside the shared header/footer, excluding borders. Default width ratio is 50:50 and the review side's height ratio is 50:50, producing one half-screen pane and two quarter-screen panes.
+The default is Agent on the left and Activity above Visualization on the right. Default ratios are 50:50, producing one half-screen pane and two quarter-screen panes. A split divides the area inside the shared header/footer, including each leaf's border; pane content excludes that border. Every terminal cell belongs to one pane rectangle, without overlapping shared borders. Other presets can reorder panes and change split axes.
 
 ```text
 Agent on left (default)
@@ -50,43 +50,166 @@ An affected-file selector, action details, filters, and checkpoint controls live
 
 ## 2. Layout configuration and resizing
 
-Persist UI preferences separately from the recording facts, with workspace overrides over user defaults. Proposed configuration:
+### 2.1 Split-tree contract
 
-```toml
-[ui]
-agent_side = "left"             # left | right
-agent_width_fraction = 0.50
-activity_height_fraction = 0.50 # fraction of the review side
-initial_focus = "agent"
-follow_activity = true
+A layout is a binary tree with exactly three leaves: `agent`, `activity`, and `visualization`, each occurring once. A `columns` split places `first` on the left and `second` on the right; a `rows` split places `first` above `second`. Axis names describe the dimension being divided. Two splits suffice for every supported arrangement; arbitrary additional panes, floating windows and hidden persistent leaves are outside v1. Maximize and compact mode temporarily change visibility without modifying this tree.
 
-[ui.visualizers]
-"file.create" = "file-create"
-"file.modify" = "source-diff"
-"file.delete" = "file-delete"
-"shell.execute" = "command"
+The configuration is UTF-8 JSON, at most 64 KiB. The complete v1 shape is:
+
+```json
+{
+  "schema_version": 1,
+  "active_layout": "default",
+  "initial_focus": "agent",
+  "layouts": {
+    "default": {
+      "type": "split",
+      "id": "main",
+      "axis": "columns",
+      "ratio_bps": 5000,
+      "first": {"type": "pane", "pane": "agent"},
+      "second": {
+        "type": "split",
+        "id": "review",
+        "axis": "rows",
+        "ratio_bps": 5000,
+        "first": {"type": "pane", "pane": "activity"},
+        "second": {"type": "pane", "pane": "visualization"}
+      }
+    }
+  }
+}
 ```
 
-Expose mirror and ratio changes through the IDE command menu; keyboard adjustments are sufficient for MVP. Clamp ratios to keep panes usable. Save changed ratios, calculate integer dimensions deterministically, and give leftover columns/rows to the Agent/Activity panes. Resize the child PTY to the Agent pane's content dimensions after every layout change.
+`ratio_bps` is the first child's requested share in integer basis points: 5000 means 50%. Valid values are 1000–9000 inclusive. Booleans are not integers. Leaf fields are exactly `type` and `pane`; split fields are exactly the six fields shown. Split IDs are unique within a tree. Layout names and split IDs contain 1–32 ASCII letters/digits/underscores/hyphens and begin with a letter. There are at most 32 named layouts per file. Depth is at most three nodes on a root-to-leaf path. The active name must resolve to a built-in or a custom definition after layers are combined. A custom definition can shadow a built-in name; reset can always recover the original built-in.
 
-Proposed minimum for all three panes: 100 columns × 28 rows, subject to terminal-fidelity testing. Below this, show one full-screen pane at a time with the same focus/navigation commands and a visible compact-layout indicator. Restore the saved three-pane layout when space returns. Allow explicit maximize/unmaximize at any size without restarting the agent or losing selection.
+Reject duplicate JSON keys, unknown fields, non-finite numbers, wrong types, unknown panes/axes, duplicate or missing panes, repeated split IDs, and unsupported versions. Validate the size before parsing and the structure before recursively traversing it. A tree is replaced as a whole; never merge partial nodes across configuration layers. No commands, providers, visualizer plugins, environment variables or executable expressions are accepted in this file. Visualizer preferences remain a separate future configuration contract.
+
+### 2.2 Presets and worked arrangements
+
+Built-ins are `default`, `agent-right`, `agent-top`, and `visualization-top`. All start with 5000 ratios. `agent-right` exchanges the root children of `default`. `visualization-top` exchanges the two review leaves of `default`:
+
+```json
+{
+  "type": "split", "id": "main", "axis": "columns", "ratio_bps": 5000,
+  "first": {"type": "pane", "pane": "agent"},
+  "second": {
+    "type": "split", "id": "review", "axis": "rows", "ratio_bps": 5000,
+    "first": {"type": "pane", "pane": "visualization"},
+    "second": {"type": "pane", "pane": "activity"}
+  }
+}
+```
+
+`agent-top` uses a horizontal divider with side-by-side review panes below:
+
+```json
+{
+  "type": "split", "id": "main", "axis": "rows", "ratio_bps": 5000,
+  "first": {"type": "pane", "pane": "agent"},
+  "second": {
+    "type": "split", "id": "review", "axis": "columns", "ratio_bps": 5000,
+    "first": {"type": "pane", "pane": "activity"},
+    "second": {"type": "pane", "pane": "visualization"}
+  }
+}
+```
+
+Add either tree under its name in `layouts` in the complete file above, then set `active_layout` to that name. A custom tree can also place Visualization full-height on the left with Agent above Activity on the right, or put all three panes in a single row using two nested `columns` splits. Pane identity does not depend on its position.
+
+```text
+agent-top                         visualization-top
++--------------------------------+ +----------------+----------------+
+| Agent                          | | Agent          | Visualization  |
++----------------+---------------+ |                +----------------+
+| Activity       | Visualization | |                | Activity       |
++----------------+---------------+ +----------------+----------------+
+```
+
+At 140 columns × 40 rows, reserve one header and one footer row, leaving 140 × 38. `default` yields Agent 70 × 38, Activity 70 × 19 and Visualization 70 × 19. Agent content is 68 × 36. `agent-top` yields Agent 140 × 19 (content 138 × 17) and each review pane 70 × 19. At 141 columns the first root child receives 71 columns and the second 70. A 6000 root ratio at 140 columns requests 84/56; subtree minimums may constrain the effective division.
+
+### 2.3 Persistence, precedence and migration
+
+Proposed launch options are `--layout NAME`, `--layout-config FILE`, and `--ignore-layout-config`. These are Phase 4 work. Discover configuration once at startup in this order, lowest to highest:
+
+1. Built-in presets and defaults.
+2. User file: `$XDG_CONFIG_HOME/labradour/layout.json`, or `~/.config/labradour/layout.json` when XDG_CONFIG_HOME is unset or not absolute, on macOS and Linux.
+3. Workspace file: `.labradour/layout.json` directly under the canonical launched workspace; do not search parent directories.
+4. Explicit `--layout-config FILE`, resolved relative to the launcher working directory.
+5. Explicit `--layout NAME` or the legacy side/ratio launch flags.
+6. Current-session edits.
+
+At each file layer, `schema_version` is required; `layouts`, `active_layout`, and `initial_focus` are optional. Supplied layouts replace matching names, while omitted names and top-level preferences inherit. Defaults are active `default` and initial focus `agent`. An active name is checked after all valid file layers are resolved; an unresolved name from discovery warns and falls back to built-in `default`. An explicitly requested unresolved name fails before PTY launch. `--ignore-layout-config` skips all discovered files; combining it with an explicit file is an argument error.
+
+Malformed automatically discovered files are ignored as whole layers with a visible warning and source path. An unreadable or invalid explicit file is a startup error. Unknown schema versions are never rewritten. Symlinks and non-regular config files are refused. Project configuration is declarative data; reading it does not launch processes or save files. The command menu's layout status shows each source, effective tree, requested/effective ratios, ignored-layer reasons and unsaved changes.
+
+Legacy `--side`, `--agent-width` and `--activity-height` remain supported. If any is explicitly supplied, construct the legacy default tree, using left/0.5/0.5 for omitted values; do not apply positional width/height changes to an arbitrary tree. Reject combining these flags with explicit `--layout`. Existing clamping to 0.3–0.7 is retained for these legacy flags, converting the result to basis points. No flag means the discovered active tree wins. The previously proposed `[ui]` TOML example was never a persisted implementation and is not an auto-loaded format. No v0 disk migration exists; future versions require an explicit, documented migration that preserves the original file and rejects newer unknown versions.
+
+Edits are session-local until explicit `layout save NAME user|workspace`. Save the current tree under NAME and select it as active, preserving other valid definitions in that destination. User saves write the user file; workspace saves write only the launched workspace file and may appear as ordinary workspace changes in recordings. Never save automatically during resize, maximize, focus, launch, or shutdown. Saving an ignored/invalid destination requires explicit confirmation to replace it; warn before shadowing an inherited name. Use a same-directory temporary file, restrictive permissions, flush/fsync and atomic replace. Refuse a destination changed since it was read; let the user reload/retry. A failed save leaves the session layout usable with an unsaved/error notice. Do not write to the recording store or native provider settings.
+
+Persist tree/name/initial-focus preferences only. Current focus, compact/maximize state, terminal dimensions, action selection, filters, follow mode, visualization tabs/scroll/job state and provider credentials are not layout-file fields. A loaded layout cannot replace those live states.
+
+### 2.4 Layout editing
+
+`Ctrl-]` then `:` opens the IDE command menu. It accepts only registered IDE commands, never a shell command. The editor offers a tree preview labelled with split IDs, pane names, axes and requested/effective ratios. All operations are keyboard accessible. Target split IDs belong to the active tree; invalid targets leave it unchanged with a reason.
+
+| Proposed menu command | Effect |
+| --- | --- |
+| `layout use NAME` | Switch to a named built-in/custom tree |
+| `layout swap PANE PANE` | Exchange two leaf identities; ratios remain attached to split nodes |
+| `layout flip SPLIT_ID` | Exchange children and replace ratio with 10000 minus ratio, preserving their requested sizes |
+| `layout axis SPLIT_ID rows|columns` | Change the split axis, retaining its requested ratio |
+| `layout ratio SPLIT_ID BPS` | Set the requested first-child share within 1000–9000 |
+| `layout reset NAME` | Load the original named built-in into session state; do not write a file |
+| `layout save NAME user|workspace` | Explicitly persist the current valid tree |
+| `layout reload` | Reload validated disk layers; ask before discarding unsaved edits |
+| `layout status` | Inspect sources, tree, minimums, compact reason, and save state |
+
+Swaps, flips and axis changes can produce all binary arrangements of the three leaves. Repeated axis changes allow a row/column of three panes. New named arrangements are saved from the session tree. There is no arbitrary JSON or shell evaluation inside the menu.
+
+Each change validates a candidate tree, computes geometry, then commits one UI transaction. An editor preview does not resize the PTY until Apply; Escape cancels the preview. Menu commands apply immediately after validation. They preserve focused pane identity. Switching to a layout that does not fit enters compact mode without altering the saved ratios.
+
+Keep current shortcuts with explicit arbitrary-tree semantics. `m` horizontally reflects the whole tree by flipping every `columns` node and complementing its ratio; `rows` nodes stay unchanged. `+`/`-` increase/decrease Agent's requested share by 500 basis points at its nearest `columns` ancestor. `]`/`[` increase/decrease Activity's requested share at its nearest `rows` ancestor. If the pane is in `second`, adjust the stored first ratio in the opposite direction. At an absent matching ancestor, report “no width/height split; use layout menu” without changing geometry. Clamp shortcuts to the valid range. At constrained sizes show requested and effective ratios; physical resize never rewrites the requested ratio. `z` toggles maximize for the focused pane independently of compact mode.
+
+### 2.5 Geometry, compact mode and PTY size
+
+Rectangles use integer terminal cells `(y, x, height, width)`. Reserve header row 0 and footer row rows−1. Leaf minimum outer sizes (including two border rows/columns) are Agent 40 × 12, Activity 30 × 8, and Visualization 30 × 8. Their minimum content sizes are 38 × 10, 28 × 6 and 28 × 6. These are usability floors, not certification that every native screen works at that size.
+
+For `columns`, subtree minimum width is the sum of child widths and minimum height their maximum; for `rows`, height is the sum and width the maximum. An all-pane layout requires both the current 100 × 28 terminal floor and its tree's minimum inside the header/footer. Otherwise compact mode shows only the focused pane, with a text indicator and reason. Do not drop just one leaf or silently substitute a different preset. When the terminal grows, restore the requested tree with the same focus and review state. Maximize remains explicit until toggled off even after leaving compact mode.
+
+Allocate each split recursively: for extent E and ratio R, requested first extent is `ceil(E * R / 10000)` using integer arithmetic. Clamp it between the first subtree's minimum and E minus the second subtree's minimum. The second child gets the remainder. Do not allocate negative/zero content, gaps or overlaps. Border cells belong to their leaf; adjacent panes have separate borders. Positions are relative to the shared content area. If the tree cannot meet minima, use compact mode before allocation rather than relaxing minima piecemeal.
+
+In focused-only modes the visible pane fills the content area regardless of its ordinary minimum. If fewer than three rows or four columns exist, draw only a best-effort “terminal too small” notice; keep quit/prefix controls active and retain the last positive PTY size. Content sizes smaller than normal minima remain at least 1 × 1 wherever a bordered pane can be drawn.
+
+When Agent is visible, resize its existing PTY and terminal model to its content rectangle before drawing the next frame. Send a resize only when content dimensions actually change; the normal PTY resize delivers SIGWINCH. Coalesce physical resize bursts for at most 50 ms without blocking input or capture. When Agent is hidden because review is maximized/compact, retain its last visible positive dimensions and continue consuming output; do not resize it to the review rectangle or 0 × 0. If initially hidden, initialize at the Agent's ordinary tree geometry when it fits, otherwise the focused-only content size. Refocusing Agent applies its visible content size before forwarding newly focused input. No layout operation respawns/replays the child or alters its arguments.
+
+Terminal history and native alternate-screen state remain owned by the existing terminal model. Reflow/cursor clamping follows the terminal backend's capabilities; do not promise preservation of identical native line wrapping across sizes. Preserve buffers, modes and queued bytes, and let the provider redraw through its normal resize behavior. If a resize fails, retain the previous valid presentation/PTY size and show a recoverable notice.
+
+### 2.6 Live state and rendering ownership
+
+Keep pane controllers keyed by `agent`, `activity`, and `visualization` independent of curses windows. A layout transaction may replace windows but must retain child PID/process group, PTY descriptor, terminal buffers/input modes, collector credentials, recorder session and queues. Preserve Activity's stable selected action/effect ID, filters, expansions, paused follow/unread count, and Visualization's selection/revision, view ID, tab, scroll and bounded interaction state. Clamp scroll only when required by content bounds.
+
+Resize rerenders prepared visualization analysis for the new viewport; it does not restart evidence analysis or reread the workspace. Each viewport change increments render generation, and stale results cannot paint new windows. Hidden review panes retain their selection/state; expensive hidden rendering can pause, while collection and evidence revisions continue. The renderer receives the latest revision on visibility restoration. Selection/revision changes still cancel obsolete preparation as required by [VizApi.md](docs/VizApi.md).
+
+Layout edits and file errors are presentation-local. They cannot suspend recording, answer approvals, synthesize agent input, start plugins or open graphical companions. Escape closes the command overlay and restores the previous focus; quit remains available throughout preview, compact mode and save errors.
 
 ## 3. Focus and input
 
-Start with Agent focused. Show a visible focus label and border treatment, using text as well as color.
+Start with Agent focused unless `initial_focus` is configured. Show a visible focus label and border treatment, using text as well as color. Prefix-Tab traverses leaves in depth-first `first` then `second` order, wrapping; prefix-Shift-Tab reverses that order. This is left-to-right/top-to-bottom tree order, not the fixed Agent/Activity/Visualization order of the current harness. In `agent-top`, the order is Agent → Activity → Visualization; in `visualization-top`, Agent → Visualization → Activity. Direct focus keys remain independent of position. Layout changes preserve focused pane identity and determine the next traversal from the new tree. In compact/maximized mode traversal includes hidden leaves and makes the newly focused pane visible; it does not exit maximize. The command overlay consumes its own navigation keys and returns focus to its owning pane on close.
 
 | Input | Behavior |
 | --- | --- |
 | Ordinary keys, paste, Tab, arrows, Ctrl-C in Agent | Pass to child PTY |
 | `Ctrl-]` then `a`, `l`, or `v` | Focus Agent, Activity log, or Visualization |
 | `Ctrl-]` then Tab | Cycle through the three panes |
+| `Ctrl-]` then Shift-Tab | Cycle in reverse tree order |
 | `Ctrl-]` then `m` | Mirror agent side |
 | `Ctrl-]` then `z` | Maximize/restore focused pane |
 | `Ctrl-]` then `:` | Open IDE command menu |
 | `Ctrl-]` then `Ctrl-]` | Send a literal `Ctrl-]` to the Agent pane |
 | Escape in a review overlay | Close overlay; preserve selection |
 
-The prefix is configurable. Display prefix-mode hints, cancel the pending prefix on Escape, and expire it after a short timeout with no input. Do not reinterpret pasted text as IDE commands. Ctrl-C in review panes cancels a visualization job or filter operation; it does not interrupt the agent. Stopping the agent/session is a separate explicit command.
+Reserve `Ctrl-]` as the v1 prefix and `Ctrl-Q` as global quit, consistent with the current router; prefix customization is deferred. Display prefix-mode hints, cancel the pending prefix on Escape, and expire it after two seconds with no input. Do not reinterpret bracketed pasted text as IDE commands. Ctrl-C in review panes cancels a visualization job or filter operation; it does not interrupt the agent. Stopping the agent/session is a separate explicit command. Closing a menu must not replay its typed text into the Agent.
 
 Native approval prompts stay inside Agent. Surface an “agent awaiting input” indicator only when a provider event establishes it; clicking/focusing the indicator returns to Agent without answering the prompt.
 
@@ -188,4 +311,4 @@ All operations must be keyboard accessible. Use visible text labels for focus/st
 7. Rapid selection changes cannot display an obsolete visualizer result. Slow export cannot delay agent typing or event capture.
 8. With gitdiffviz unavailable, every action is still inspectable in the quarter-screen pane. With it installed, graphical opening is explicit and uses the selected historical evidence.
 
-Validate the initial layout and focus in the Phase 0 PTY spike. Expand this specification and its acceptance scenarios for arbitrary arrangements in Phase 3, then implement the resulting UI in Phase 4 (review MVP) of [AgentIDEPlan.md](AgentIDEPlan.md). The optional graphical exporter extends the same visualizer registry in Phase 5.
+The Phase 3 layout acceptance matrix in [docs/Phase3.md](docs/Phase3.md) adds reordered/nested layouts, validation, persistence, constrained geometry and state preservation. Phase 3 defines those scenarios; passing the runtime gates requires Phase 4 implementation in [AgentIDEPlan.md](AgentIDEPlan.md). The optional graphical exporter extends the same visualizer registry in Phase 5.
