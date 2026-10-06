@@ -92,7 +92,7 @@ Retention removes whole older sessions, compacts their journal rows, deletes the
 
 Default geometry is half-width Agent plus stacked quarter-screen review panes. Terminals smaller than 100×28 use the focused pane full screen. Session layout adjustments are not yet persisted. [Phase 3's completed specification](docs/Phase3.md) defines arbitrary split trees, named presets, editing, persistence and focus/resize acceptance; Phase 4 implements those features.
 
-[Phase 4's layout foundation](docs/Phase4.md) adds four session-local presets through `--layout`: `default`, `agent-right`, `agent-top`, and `visualization-top`. Try `python3 -m labradour run --demo --layout agent-top`. Custom configuration, persistence, the layout editor and full review views are subsequent slices.
+[Phase 4's layout system](docs/Phase4.md) provides four presets through `--layout`: `default`, `agent-right`, `agent-top`, and `visualization-top`, plus custom names from layered v1 JSON files. Try `python3 -m labradour run --demo --layout agent-top`. Inspect with `python3 -m labradour layout status`, save explicitly with `layout save NAME --scope user|workspace`, or load a file with `run --layout-config FILE`. Ctrl-] then `i` displays source/geometry diagnostics. The in-session editor and full review views are subsequent slices.
 
 Run verification and probes:
 

@@ -33,12 +33,16 @@ def clip(text, width):
 class Harness:
     def __init__(self, command, workspace, events, side="left", agent_fraction=.5, activity_fraction=.5,
                  watch=False, watch_backend="native", recording=None, policy=None, collector=False, adapter_provider=None,
-                 layout_tree=None):
+                 layout_tree=None, layout_config=None, initial_focus="agent"):
         self.command, self.workspace, self.events = command, workspace, Path(events)
         self.side = side
         self.agent_fraction, self.activity_fraction = agent_fraction, activity_fraction
         self.layout_tree = parse_tree(tree_dict(layout_tree)) if layout_tree is not None else None
-        self.focus = "agent"
+        if initial_focus not in ("agent", "activity", "visualization"):
+            raise ValueError("unknown initial focus")
+        self.focus = initial_focus
+        self.layout_config = layout_config
+        self.layout_view = False
         self.maximized = False
         self.actions = []
         self.seen = set()
@@ -140,7 +144,12 @@ class Harness:
                 else:
                     self.activity_fraction = min(.7, max(.3, self.activity_fraction + (.05 if key == "]" else -.05)))
             elif key == "p":
+                self.layout_view = False
                 self.policy_view = not self.policy_view
+                self.focus = "visualization"
+                self.scroll = 0
+            elif key == "i" and self.layout_config is not None:
+                self.layout_view = not self.layout_view
                 self.focus = "visualization"
                 self.scroll = 0
             elif key == "q":
@@ -160,6 +169,7 @@ class Harness:
             self.child.send(token)
         elif kind == "key":
             if self.focus == "activity":
+                self.layout_view = False
                 self.policy_view = False
                 if token in (b"j", b"\x1b[B"):
                     self.selected = min(len(self.actions) - 1, self.selected + 1) if self.actions else 0
@@ -240,6 +250,13 @@ class Harness:
                              curses.A_REVERSE if index == self.selected else 0)
                 if not self.actions:
                     self.add(window, 1, 1, "No hook events; native tool coverage unverified")
+            elif self.layout_view and self.layout_config is not None:
+                lines = ["Layout configuration / source diagnostics"]
+                lines += json.dumps(self.layout_config.describe(rows, columns, self.layout_tree,
+                                                               focus=self.focus, maximized=self.maximized),
+                                    ensure_ascii=False, indent=2).splitlines()
+                for y, line in enumerate(lines[self.scroll:self.scroll + h]):
+                    self.add(window, y + 1, 1, line)
             elif self.policy_view:
                 lines = ["Effective capture policy", "Recording enabled" if self.recording else "Recording disabled"]
                 lines += json.dumps(self.policy.describe(self.workspace, [p for p in (self.recording, self.events) if p]),
@@ -257,6 +274,8 @@ class Harness:
             else:
                 self.add(window, 1, 1, "Select an action; run the fake agent to emit events")
         footer = "Ctrl-Q quit | Ctrl-] ? help | " + self.notice
+        if self.layout_config and self.layout_config.warnings:
+            footer = "Ctrl-Q quit | " + self.notice + " | LAYOUT WARNING (Ctrl-] i): " + self.layout_config.warnings[0]
         if self.recorder:
             metrics = self.recorder.metrics
             if self.adapter_provider:

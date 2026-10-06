@@ -2,7 +2,7 @@
 
 Date: 2026-10-06. Status: Phase 3 layout specification complete; runtime implementation belongs to Phase 4. Companion architecture: [AgentIDEPlan.md](AgentIDEPlan.md).
 
-The layout contract below supports arbitrary binary arrangements of the same three panes. Activity-above-Visualization is the default preset. Phase 4's foundation now implements validated trees, geometry and four built-in `--layout` presets alongside legacy side/ratio controls. File configuration, persistence and the command editor remain implementation requirements. Current availability is documented in [docs/Phase4.md](docs/Phase4.md); the full implementation gates are in [docs/Phase3.md](docs/Phase3.md).
+The layout contract below supports arbitrary binary arrangements of the same three panes. Activity-above-Visualization is the default preset. Phase 4 now implements validated trees, geometry, four presets, layered file configuration, initial focus, diagnostics and explicit CLI persistence alongside legacy side/ratio controls. The in-session command editor remains pending. Current availability is documented in [docs/Phase4.md](docs/Phase4.md); the full implementation gates are in [docs/Phase3.md](docs/Phase3.md).
 
 ## 1. Screen structure
 
@@ -130,7 +130,7 @@ At 140 columns × 40 rows, reserve one header and one footer row, leaving 140 ×
 
 ### 2.3 Persistence, precedence and migration
 
-The complete launch contract includes `--layout NAME`, `--layout-config FILE`, and `--ignore-layout-config`. Only built-in names through `--layout` are available in the foundation slice; configuration files and discovery remain pending. Discover configuration once at startup in this order, lowest to highest:
+The launch options are `--layout NAME`, `--layout-config FILE`, and `--ignore-layout-config`. Discover configuration once at startup in this order, lowest to highest:
 
 1. Built-in presets and defaults.
 2. User file: `$XDG_CONFIG_HOME/labradour/layout.json`, or `~/.config/labradour/layout.json` when XDG_CONFIG_HOME is unset or not absolute, on macOS and Linux.
@@ -146,6 +146,8 @@ Malformed automatically discovered files are ignored as whole layers with a visi
 Legacy `--side`, `--agent-width` and `--activity-height` remain supported. If any is explicitly supplied, construct the legacy default tree, using left/0.5/0.5 for omitted values; do not apply positional width/height changes to an arbitrary tree. Reject combining these flags with explicit `--layout`. Existing clamping to 0.3–0.7 is retained for these legacy flags, converting the result to basis points. No flag means the discovered active tree wins. The previously proposed `[ui]` TOML example was never a persisted implementation and is not an auto-loaded format. No v0 disk migration exists; future versions require an explicit, documented migration that preserves the original file and rejects newer unknown versions.
 
 Edits are session-local until explicit `layout save NAME user|workspace`. Save the current tree under NAME and select it as active, preserving other valid definitions in that destination. User saves write the user file; workspace saves write only the launched workspace file and may appear as ordinary workspace changes in recordings. Never save automatically during resize, maximize, focus, launch, or shutdown. Saving an ignored/invalid destination requires explicit confirmation to replace it; warn before shadowing an inherited name. Use a same-directory temporary file, restrictive permissions, flush/fsync and atomic replace. Refuse a destination changed since it was read; let the user reload/retry. A failed save leaves the session layout usable with an unsaved/error notice. Do not write to the recording store or native provider settings.
+
+Current slice availability: `python3 -m labradour layout status` inspects the resolved configuration; `layout save NAME --scope user|workspace` explicitly saves the CLI-selected tree, with `--confirm-replace`/`--confirm-shadow` for the cases above. Ctrl-] then `i` displays live source/geometry diagnostics. The persistence API accepts an edited session tree, but in-session menu saves/reload remain the next editor slice. Non-regular/symlinked config files and symlinked direct config directories are refused; oversized destinations are not replaced. Cooperating saves use a nonblocking advisory lock plus identity/content checks. An unrelated external editor can race the final check/replace; this is not an operating-system transaction against arbitrary uncooperative writers. Workspace layout changes obey capture policy; `.labradour` is excluded by default.
 
 Persist tree/name/initial-focus preferences only. Current focus, compact/maximize state, terminal dimensions, action selection, filters, follow mode, visualization tabs/scroll/job state and provider credentials are not layout-file fields. A loaded layout cannot replace those live states.
 

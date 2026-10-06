@@ -24,7 +24,7 @@ Phase 3 is a completed specification milestone. Phase 4 implements and verifies 
 ## Phase 4: review MVP
 
 - [x] **Layout foundation**: immutable validated split trees, four launch presets, deterministic geometry/minimums, compact behavior, tree-order focus, mirror/ratio controls and same-batch PTY resizing. Legacy geometry remains compatible. All 116 tests pass on macOS/Linux; see [Phase4.md](docs/Phase4.md).
-- [ ] **Layout configuration and persistence**: bounded JSON file loading, user/workspace/explicit precedence, custom names, initial focus, source diagnostics and atomic conflict-aware saves.
+- [x] **Layout configuration and persistence**: bounded strict v1 JSON, user/workspace/explicit precedence, custom names, initial focus, source/effective-geometry diagnostics and atomic conflict-aware saves. CLI `layout status`/`layout save` and Ctrl-] `i` are available; the persistence API accepts session-edited trees for the next editor slice. All 128 tests pass on macOS/Linux; see [Phase4.md](docs/Phase4.md).
 - [ ] **Layout editor and interaction acceptance**: command overlay, split operations, preview/apply/cancel, reload/reset/save flows and broader live-state/native fidelity checks.
 - [ ] **Action/effect Activity projection**: stable selection, actor/tool filters, lifecycle rows, child effects and paused-follow updates without ownership claims.
 - [ ] **Historical built-in visualizers**: scoped read-only evidence, creation/diff/deletion/command/generic views, missing-data labels, background preparation and stale-result rejection.

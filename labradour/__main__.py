@@ -34,6 +34,22 @@ def policy_from_args(args):
                         "max_capture_bytes", "storage_budget_bytes", "max_event_bytes")})
 
 
+def layout_arguments(parser):
+    parser.add_argument("--layout", help="Choose a built-in or configured layout name")
+    parser.add_argument("--layout-config", type=Path, help="Explicit v1 layout JSON file")
+    parser.add_argument("--ignore-layout-config", action="store_true", help="Skip discovered user/workspace layout files")
+    parser.add_argument("--side", choices=["left", "right"])
+    parser.add_argument("--agent-width", type=float)
+    parser.add_argument("--activity-height", type=float)
+
+
+def layout_from_args(args):
+    from .layout_config import load_layout
+    return load_layout(args.workspace, explicit=args.layout_config, name=args.layout,
+                       ignore=args.ignore_layout_config, side=args.side,
+                       agent_width=args.agent_width, activity_height=args.activity_height)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Labradour native agent launcher and recorder")
     commands = parser.add_subparsers(dest="mode", required=True)
@@ -44,15 +60,25 @@ def main():
     run.add_argument("--events", type=Path, help="Hook spool directory; temporary by default")
     run.add_argument("--hooks", choices=["claude", "codex"], help="Add observation-only launch-scoped hooks")
     run.add_argument("--collector", action="store_true", help="Enable Phase 2 authenticated adapter collection (requires --record)")
-    from .layout import PRESETS, preset
-    run.add_argument("--layout", choices=PRESETS, help="Choose a built-in split-tree layout (session-local)")
-    run.add_argument("--side", choices=["left", "right"])
-    run.add_argument("--agent-width", type=float)
-    run.add_argument("--activity-height", type=float)
+    layout_arguments(run)
     run.add_argument("--watch", action="store_true", help="Display watchdog filesystem observations (no content capture)")
     run.add_argument("--watch-backend", choices=["native", "polling"], default="native")
     policy_arguments(run)
     run.add_argument("command", nargs=argparse.REMAINDER)
+    layouts = commands.add_parser("layout", help="Inspect or explicitly save layout preferences without launching")
+    layout_commands = layouts.add_subparsers(dest="layout_mode", required=True)
+    for operation in ("status", "save"):
+        layout_command = layout_commands.add_parser(operation)
+        layout_command.add_argument("--workspace", type=Path, default=Path.cwd())
+        layout_arguments(layout_command)
+        if operation == "status":
+            layout_command.add_argument("--rows", type=int, default=40)
+            layout_command.add_argument("--columns", type=int, default=140)
+        else:
+            layout_command.add_argument("name", help="Name to save the selected tree under")
+            layout_command.add_argument("--scope", choices=["user", "workspace"], default="user")
+            layout_command.add_argument("--confirm-replace", action="store_true", help="Explicitly replace an ignored/invalid destination")
+            layout_command.add_argument("--confirm-shadow", action="store_true", help="Explicitly shadow an inherited layout name")
     preview = commands.add_parser("policy", help="Preview effective capture policy without recording or launching")
     preview.add_argument("--workspace", type=Path, default=Path.cwd())
     preview.add_argument("--record", type=Path, help="Include the recording path in the preview")
@@ -84,7 +110,20 @@ def main():
     commands.add_parser("doctor", help="List prerequisites without reading credentials")
     commands.add_parser("adapter-coverage", help="Show native provider categories still requiring verification")
     args = parser.parse_args()
-    if args.mode == "adapter-coverage":
+    if args.mode == "layout":
+        try:
+            config = layout_from_args(args)
+            if args.layout_mode == "status":
+                if args.rows < 1 or args.columns < 1:
+                    raise ValueError("layout viewport dimensions must be positive")
+                result = config.describe(args.rows, args.columns)
+            else:
+                result = config.save(args.name, args.scope, confirm_replace=args.confirm_replace,
+                                     confirm_shadow=args.confirm_shadow)
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
+        print(json.dumps(result, indent=2))
+    elif args.mode == "adapter-coverage":
         from .adapters.events import coverage
         print(json.dumps(coverage(), indent=2))
     elif args.mode == "policy":
@@ -153,6 +192,7 @@ def main():
             parser.error("--collector requires --record")
         try:
             policy = policy_from_args(args)
+            layout_config = layout_from_args(args)
         except (ValueError, OSError) as exc:
             parser.error(str(exc))
         if not args.record and any(getattr(args, name) is not None for name in
@@ -197,7 +237,8 @@ def main():
                               args.watch, args.watch_backend, args.record, policy,
                               collector=args.collector or bool(args.hooks and args.record),
                               adapter_provider=args.hooks if args.record else None,
-                              layout_tree=preset(args.layout) if args.layout else None)
+                              layout_tree=layout_config.tree, layout_config=layout_config,
+                              initial_focus=layout_config.initial_focus)
             try:
                 curses.wrapper(harness.run)
                 if harness.child and harness.child.status is None:

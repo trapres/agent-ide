@@ -155,7 +155,27 @@ Resize your outer terminal normally; Labradour updates the Agent's PTY dimension
 
 Phase 4's layout foundation now supports `--layout default`, `agent-right`, `agent-top`, or `visualization-top`. For example, run `python3 -m labradour run --demo --layout agent-top` to put Agent above the two review panes. With a preset, prefix-Tab follows pane order in the tree and prefix-Shift-Tab reverses it. Mirror reflects columns; width/height shortcuts adjust the nearest matching split, or report that none exists. Do not combine `--layout` with the legacy side/ratio launch flags.
 
-Preferences remain session-local. Custom layout files, `--layout-config`, a keyboard editor, and explicit user/workspace saves are still pending; Ctrl-] then `:` does not open an editor yet. See [Phase 4 behavior and checks](docs/Phase4.md), [the layout contract](AgentUI.md#2-layout-configuration-and-resizing), and [Phase 3 acceptance scenarios](docs/Phase3.md).
+Layout files and explicit saves are now available. Load a custom v1 JSON file with `--layout-config FILE`, or select a name defined in user/workspace settings with `--layout NAME`. Preferences resolve from built-ins, then user settings, workspace settings, and the explicit file. `--ignore-layout-config` skips discovery and cannot be combined with an explicit file.
+
+The user file is `$XDG_CONFIG_HOME/labradour/layout.json` (when XDG_CONFIG_HOME is absolute), otherwise `~/.config/labradour/layout.json`. The workspace file is `.labradour/layout.json` directly in the requested workspace. Demo launches also use the requested `--workspace` for layout discovery; their generated files still live in a disposable demo workspace.
+
+Inspect settings without starting an agent:
+
+```sh
+python3 -m labradour layout status --workspace /path/to/project
+```
+
+To save a selected tree under a new name and make it the active workspace layout:
+
+```sh
+python3 -m labradour layout save coding --scope workspace \
+  --workspace /path/to/project --layout agent-top
+python3 -m labradour run --workspace /path/to/project -- claude
+```
+
+Use `--scope user` for a user default (also the save command's default scope). An existing higher-priority workspace file can override a user save. Saves preserve other definitions and use an atomic replacement. They never occur automatically on launch, resize, focus or exit. A file changed since loading causes a refusal; reload/retry instead of discarding that change. `--confirm-shadow` explicitly permits shadowing an inherited name; `--confirm-replace` permits replacing an ignored/invalid destination. Unsupported schema versions, oversized files and non-regular/symlinked destinations remain refused.
+
+Press **Ctrl-] then `i`** during a session to toggle layout diagnostics in Visualization: sources, warning reasons, current tree, requested/effective ratios, geometry and unsaved changes. Ordinary session shortcuts remain transient. The in-session keyboard editor and save-current-session command are next-slice work; Ctrl-] then `:` does not open an editor yet. See [Phase 4 checks](docs/Phase4.md), [the layout contract and JSON examples](AgentUI.md#2-layout-configuration-and-resizing), and [Phase 3 acceptance scenarios](docs/Phase3.md).
 
 ## Exit and review saved history
 

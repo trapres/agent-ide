@@ -15,7 +15,7 @@ python3 -m labradour run --demo --layout agent-top
 python3 -m labradour run --demo --layout visualization-top
 ```
 
-Use the same `--layout` option when launching a native provider, with the usual workspace, recording and hook options. Explicit legacy `--side`, `--agent-width`, or `--activity-height` cannot be combined with `--layout`. Without `--layout`, the harness retains its original geometry and shortcuts.
+Use the same `--layout` option when launching a native provider, with the usual workspace, recording and hook options. Explicit legacy `--side`, `--agent-width`, or `--activity-height` cannot be combined with `--layout`. Explicit legacy side/ratio flags now construct the legacy default split tree with the documented clamping; without layout flags, discovered preferences select the active tree.
 
 With an explicit preset, prefix-Tab cycles by tree order and prefix-Shift-Tab cycles in reverse. Mirror reflects column splits throughout the tree. Width/height shortcuts change the target pane's nearest matching ancestor in 500-basis-point steps, bounded to 1000–9000. When no matching ancestor exists, a notice explains that no change occurred. Focus, event selection, paused follow and JSON scroll remain live through these operations.
 
@@ -31,4 +31,32 @@ Try `visualization-top`: Visualization should be above Activity. Prefix-Tab visi
 
 The suite has 116 tests, including ten new layout tests. Full macOS/Python 3.9 and Linux/Python 3.11 runs pass. Coverage includes all pane permutations, both nesting shapes and split axes, extreme/constrained ratios, complete area coverage without overlap, invalid/cyclic decoded trees, reverse traversal, hidden PTY sizing, preserved state, rendered Agent-above-review geometry and same-batch input after focus changes. Existing recorder, adapter, cleanup and legacy geometry regressions also pass.
 
-Next slices implement configuration files and atomic persistence, the layout command editor, action/effect Activity projection, historical built-in visualizers and saved-session review/acceptance. `--layout-config`, custom layout names, file-layer validation, initial-focus preferences, menu editing/saves, historical source views and plugin transport are not implemented by this foundation. Native human rendering/input checks remain necessary after the broader UI integration.
+The configuration/persistence slice below extends this foundation. Subsequent slices add the in-session editor, action/effect Activity projection, historical built-in visualizers and saved-session review/acceptance. Native human rendering/input checks remain necessary after the broader UI integration.
+
+
+## Layout configuration and persistence slice
+
+The launcher now reads bounded UTF-8 v1 JSON using the [Phase 3 schema](../AgentUI.md#21-split-tree-contract). Duplicate keys, unknown fields/versions, non-finite numbers, invalid pane trees, excessive depth, more than 32 named layouts per file and files above 64 KiB are rejected. Files and their direct config directories cannot be symlinks; FIFO/non-regular files are refused without blocking.
+
+Settings resolve built-ins → user file → workspace file → explicit file → explicit name/legacy flags. Definitions replace whole trees; omitted preferences inherit. Invalid discovered layers are ignored with source warnings. Invalid/missing explicit files and explicitly unresolved names fail before launching a PTY. An unresolved discovered active name falls back to the original built-in default. Unsupported versions are never rewritten.
+
+User settings live at `$XDG_CONFIG_HOME/labradour/layout.json` for an absolute XDG_CONFIG_HOME, otherwise `~/.config/labradour/layout.json`; workspace settings live at `.labradour/layout.json` under the requested canonical workspace. Demo launches discover layout settings from the requested workspace before creating their separate disposable agent workspace. `--ignore-layout-config` skips discovery, and cannot combine with an explicit file.
+
+```sh
+python3 -m labradour layout status --workspace /path/to/project
+python3 -m labradour layout save coding --scope workspace \
+  --workspace /path/to/project --layout agent-top
+python3 -m labradour run --workspace /path/to/project -- claude
+```
+
+The save command persists the CLI-selected tree, active name and initial-focus preference, preserving other destination definitions. It does not persist live focus, selection, maximize or scroll state. `--scope user` writes the user file instead. `--confirm-shadow` permits an inherited-name shadow; `--confirm-replace` permits ignored/invalid destinations. Future versions, oversized and non-regular/symlinked destinations are refused even with confirmation. A user save can be overridden by a higher-priority workspace/explicit file on the next launch.
+
+Writes use a 0600 same-directory staging file, file/directory fsync, atomic replacement and a nonblocking `.layout.json.lock`. Loaded file identity and content stamps detect changes, creations and conflicting cooperating saves; refusal leaves live preferences unchanged. Failed staging removes the temporary file. The advisory lock cannot exclude the final check/replace race with an unrelated editor that ignores it. A directory-fsync failure after replacement can leave the new file installed while reporting a save failure; reload before retrying. No automatic saves occur. Workspace changes follow recorder capture policy (`.labradour` is excluded by default).
+
+Ctrl-] then `i` toggles live layout diagnostics in Visualization. They show all sources, ignored reasons, active name, available names, initial focus, current tree, requested/effective split sizes, compact reason, geometry and unsaved changes. A configured initial review focus initializes the hidden Agent PTY at its ordinary positive geometry and leaves it live. Layout warnings remain separate from recording health, which takes footer priority.
+
+Manual check: run the save command above in a disposable workspace, then inspect `layout status` and launch the demo with that workspace. Confirm Agent is above the review panes. Change a ratio with the existing shortcut and inspect Ctrl-] `i`: unsaved changes should become true; closing/relaunching restores the saved ratio. To customize further, edit the saved JSON and use `initial_focus: "visualization"`; a new launch should focus Visualization without sending its navigation keys to Agent. Introduce an unknown field in a discovered file to see a warning/fallback; pass that same file explicitly to see a startup error. Inspect an untouched valid destination definition to confirm it survives a save.
+
+**Validation:** all 128 tests pass on macOS/Python 3.9 and Linux/Python 3.11, including 12 configuration tests covering layer precedence, strict/bounded decoding, files/FIFOs/symlinks, legacy flags, save/restart, overwrite confirmations, newer-version preservation, lock contention, external changes, staging failure, diagnostics, CLI roundtrip and a custom-layout PTY launch with initial review focus.
+
+**Next:** the in-session command editor and save-current-tree/reload/reset flows. The backing persistence API already accepts session-edited immutable trees; this slice exposes CLI saves and live diagnostics. The full historical review views and external plugin runtime remain later work.
