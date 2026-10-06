@@ -2,6 +2,8 @@
 
 Date: 2026-10-06. Status: specification complete; implementation and runtime acceptance belong to Phase 4.
 
+Phase 4 has now started implementing this contract. See [Phase4.md](Phase4.md) for the available preset/geometry foundation and remaining runtime work. This document retains the specification milestone's scope and complete acceptance matrix.
+
 The authoritative contract is [AgentUI.md, section 2](../AgentUI.md#2-layout-configuration-and-resizing), with input rules in section 3. Phase 3 expands the same three primary panes into validated binary split trees. It does not ship new CLI options, persistence, an editor, source visualizers or a plugin runtime. The current harness keeps its side/ratio shortcuts and focused-pane fallback.
 
 ## Completed specification slices

@@ -8,12 +8,19 @@ class InputRouter:
         self.prefix_time = 0
         self.escape = bytearray()
         self.escape_time = 0
+        self.escape_command = False
         self.paste = False
 
     def feed(self, data):
         result = []
         for byte in data:
-            if self.escape:
+            if byte == 17 and not self.paste:
+                # Quit remains available during prefix/escape navigation.
+                self.prefix = False
+                self.escape.clear()
+                self.escape_command = False
+                result.append(("command", b"q"))
+            elif self.escape:
                 self.escape.append(byte)
                 token = bytes(self.escape)
                 if token == b"\x1b[":
@@ -30,14 +37,14 @@ class InputRouter:
                     self.paste = False
                     result.append(("paste-end", token))
                 else:
-                    result.append(("paste" if self.paste else "key", token))
-            elif byte == 17 and not self.paste:
-                # A global exit key must work even with an IDE prefix pending.
-                self.prefix = False
-                result.append(("command", b"q"))
+                    result.append(("command" if self.escape_command else "paste" if self.paste else "key", token))
+                self.escape_command = False
             elif self.prefix and not self.paste:
                 self.prefix = False
                 if byte == 27:
+                    self.escape.append(byte)
+                    self.escape_time = time.monotonic()
+                    self.escape_command = True
                     continue
                 result.append(("literal" if byte == 29 else "command", bytes([byte])))
             elif byte == 29 and not self.paste:
@@ -57,5 +64,8 @@ class InputRouter:
         if self.escape and time.monotonic() - self.escape_time > .05:
             token = bytes(self.escape)
             self.escape.clear()
+            if self.escape_command:
+                self.escape_command = False
+                return []
             return [("paste" if self.paste else "key", token)]
         return []

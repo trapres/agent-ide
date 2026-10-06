@@ -8,7 +8,7 @@ import signal
 import unicodedata
 
 from .input import InputRouter
-from .layout import Rect, layout
+from .layout import Rect, layout, arrange, pane_order, reflect, adjust_share, compact_reason, parse_tree, tree_dict
 from .pty_process import PtyProcess
 from .terminal import Terminal, cell_width
 
@@ -32,10 +32,12 @@ def clip(text, width):
 
 class Harness:
     def __init__(self, command, workspace, events, side="left", agent_fraction=.5, activity_fraction=.5,
-                 watch=False, watch_backend="native", recording=None, policy=None, collector=False, adapter_provider=None):
+                 watch=False, watch_backend="native", recording=None, policy=None, collector=False, adapter_provider=None,
+                 layout_tree=None):
         self.command, self.workspace, self.events = command, workspace, Path(events)
         self.side = side
         self.agent_fraction, self.activity_fraction = agent_fraction, activity_fraction
+        self.layout_tree = parse_tree(tree_dict(layout_tree)) if layout_tree is not None else None
         self.focus = "agent"
         self.maximized = False
         self.actions = []
@@ -61,8 +63,18 @@ class Harness:
 
     def geometry(self, screen):
         rows, columns = screen.getmaxyx()
+        if self.layout_tree is not None:
+            return arrange(self.layout_tree, rows, columns, self.focus, self.maximized)
         return layout(rows, columns, self.side, self.agent_fraction,
                       self.activity_fraction, self.focus, self.maximized)
+
+    def sync_agent_size(self, geometry):
+        """Focus changes in a batch must resize before forwarding native input."""
+        if self.child is not None and "agent" in geometry:
+            h, w = geometry["agent"].content_size
+            self.child.resize(h, w)
+            if (self.terminal.rows, self.terminal.columns) != (h, w):
+                self.terminal.resize(h, w)
 
     def collect(self):
         fresh = []
@@ -102,11 +114,14 @@ class Harness:
             key = token.decode("ascii", "ignore")
             if key in ("a", "l", "v"):
                 self.focus = {"a": "agent", "l": "activity", "v": "visualization"}[key]
-            elif key == "\t":
-                panes = ["agent", "activity", "visualization"]
-                self.focus = panes[(panes.index(self.focus) + 1) % 3]
+            elif key in ("\t", "\x1b[Z"):
+                panes = pane_order(self.layout_tree) if self.layout_tree is not None else ("agent", "activity", "visualization")
+                self.focus = panes[(panes.index(self.focus) + (1 if key == "\t" else -1)) % 3]
             elif key == "m":
-                self.side = "right" if self.side == "left" else "left"
+                if self.layout_tree is not None:
+                    self.layout_tree = reflect(self.layout_tree)
+                else:
+                    self.side = "right" if self.side == "left" else "left"
             elif key == "z":
                 self.maximized = not self.maximized
             elif key == "b":
@@ -114,7 +129,13 @@ class Harness:
             elif key == "n":
                 self.terminal.scroll(-1000)
             elif key in ("+", "-", "[", "]"):
-                if key in ("+", "-"):
+                if self.layout_tree is not None:
+                    width = key in ("+", "-")
+                    self.layout_tree, found = adjust_share(self.layout_tree, "agent" if width else "activity",
+                        "columns" if width else "rows", 500 if key in ("+", "]") else -500)
+                    if not found:
+                        self.notice = "No %s split for pane; layout editor is not implemented yet" % ("width" if width else "height")
+                elif key in ("+", "-"):
                     self.agent_fraction = min(.7, max(.3, self.agent_fraction + (.05 if key == "+" else -.05)))
                 else:
                     self.activity_fraction = min(.7, max(.3, self.activity_fraction + (.05 if key == "]" else -.05)))
@@ -189,6 +210,10 @@ class Harness:
         self.add(screen, 0, 0, "Labradour | %s | focus: %s | %s" % (
             Path(self.workspace).name, self.focus,
             "LIVE" if self.follow else "historical selection"), curses.A_BOLD)
+        if self.layout_tree is not None:
+            mode = "maximized" if self.maximized else compact_reason(self.layout_tree, rows, columns)
+            if mode:
+                self.add(screen, 0, 0, "Labradour | focus: %s | %s" % (self.focus, mode), curses.A_BOLD)
         for name, rect in geometry.items():
             window = screen.derwin(rect.height, rect.width, rect.y, rect.x)
             if rect.height >= 2 and rect.width >= 2:
@@ -272,7 +297,13 @@ class Harness:
             curses.start_color()
             curses.use_default_colors()
         geometry = self.geometry(screen)
-        h, w = geometry.get("agent", next(iter(geometry.values()), Rect(0, 0, 26, 82))).content_size
+        if self.layout_tree is not None and "agent" not in geometry:
+            rows, columns = screen.getmaxyx()
+            ordinary = arrange(self.layout_tree, rows, columns, "agent")
+            initial_agent = ordinary.get("agent", Rect(0, 0, 26, 82))
+        else:
+            initial_agent = geometry.get("agent", next(iter(geometry.values()), Rect(0, 0, 26, 82)))
+        h, w = initial_agent.content_size
         self.terminal = Terminal(h, w)
         child_env = dict(os.environ, LABRADOUR_EVENTS_DIR=str(self.events.resolve()))
         for key in ("LABRADOUR_COLLECTOR_SOCKET", "LABRADOUR_COLLECTOR_TOKEN", "LABRADOUR_COLLECTOR_SPOOL",
@@ -316,11 +347,7 @@ class Harness:
                 if screen.getmaxyx() != (actual.lines, actual.columns):
                     curses.resizeterm(actual.lines, actual.columns)
                 geometry = self.geometry(screen)
-                if "agent" in geometry:
-                    h, w = geometry["agent"].content_size
-                    self.child.resize(h, w)
-                    if (self.terminal.rows, self.terminal.columns) != (h, w):
-                        self.terminal.resize(h, w)
+                self.sync_agent_size(geometry)
                 # Hidden agent retains its previous usable PTY size.
                 output = self.child.read()
                 if output:
@@ -341,6 +368,8 @@ class Harness:
                         break
                     for kind, token in self.router.feed(data):
                         self.handle(kind, token)
+                        if kind == "command":
+                            self.sync_agent_size(self.geometry(screen))
         finally:
             os.write(1, b"\x1b[?2004l")
             try:

@@ -19,11 +19,19 @@ Phase 1's generic recorder is accepted in its measured automated scope (57 tests
 - [x] **Editing, persistence and focus contract**: keyboard menu, tree-order traversal, explicit atomic user/workspace saves, configuration precedence, legacy flag compatibility, validation/version fallback and preserved live state.
 - [x] **Geometry and implementation acceptance**: recursive minimums, deterministic cell allocation, compact/maximize rules, hidden/visible PTY behavior, prepared-view render generations and Phase 4 acceptance matrix. Worked checks and runtime gates are in [Phase3.md](docs/Phase3.md).
 
-Phase 3 is a completed specification milestone. Its new configuration/commands are not runtime features yet; Phase 4 implements and verifies them.
+Phase 3 is a completed specification milestone. Phase 4 implements and verifies its contract incrementally; current availability is tracked below.
+
+## Phase 4: review MVP
+
+- [x] **Layout foundation**: immutable validated split trees, four launch presets, deterministic geometry/minimums, compact behavior, tree-order focus, mirror/ratio controls and same-batch PTY resizing. Legacy geometry remains compatible. All 116 tests pass on macOS/Linux; see [Phase4.md](docs/Phase4.md).
+- [ ] **Layout configuration and persistence**: bounded JSON file loading, user/workspace/explicit precedence, custom names, initial focus, source diagnostics and atomic conflict-aware saves.
+- [ ] **Layout editor and interaction acceptance**: command overlay, split operations, preview/apply/cancel, reload/reset/save flows and broader live-state/native fidelity checks.
+- [ ] **Action/effect Activity projection**: stable selection, actor/tool filters, lifecycle rows, child effects and paused-follow updates without ownership claims.
+- [ ] **Historical built-in visualizers**: scoped read-only evidence, creation/diff/deletion/command/generic views, missing-data labels, background preparation and stale-result rejection.
+- [ ] **Saved-session review and MVP acceptance**: replay without launching an agent, retention/read coordination, recorder/input performance and end-to-end native/manual gates.
 
 ## Later phases
 
-- [ ] Phase 4: review MVP, action/effect projection, saved-session review, built-in visualizers.
 - [ ] Phase 5: optional graphical exporter and explicit companion opening.
 - [ ] Phase 6: extended provider backends and multi-session work.
 

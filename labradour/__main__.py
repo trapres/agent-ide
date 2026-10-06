@@ -44,9 +44,11 @@ def main():
     run.add_argument("--events", type=Path, help="Hook spool directory; temporary by default")
     run.add_argument("--hooks", choices=["claude", "codex"], help="Add observation-only launch-scoped hooks")
     run.add_argument("--collector", action="store_true", help="Enable Phase 2 authenticated adapter collection (requires --record)")
-    run.add_argument("--side", choices=["left", "right"], default="left")
-    run.add_argument("--agent-width", type=float, default=.5)
-    run.add_argument("--activity-height", type=float, default=.5)
+    from .layout import PRESETS, preset
+    run.add_argument("--layout", choices=PRESETS, help="Choose a built-in split-tree layout (session-local)")
+    run.add_argument("--side", choices=["left", "right"])
+    run.add_argument("--agent-width", type=float)
+    run.add_argument("--activity-height", type=float)
     run.add_argument("--watch", action="store_true", help="Display watchdog filesystem observations (no content capture)")
     run.add_argument("--watch-backend", choices=["native", "polling"], default="native")
     policy_arguments(run)
@@ -144,6 +146,9 @@ def main():
                 print("%s: missing; install requirements.txt with this Python interpreter" % package)
         print("Terminal backend: pyte with xterm extensions")
     else:
+        legacy_layout = (args.side, args.agent_width, args.activity_height)
+        if args.layout and any(value is not None for value in legacy_layout):
+            parser.error("--layout cannot be combined with --side, --agent-width or --activity-height")
         if args.collector and not args.record:
             parser.error("--collector requires --record")
         try:
@@ -186,10 +191,13 @@ def main():
                 print("Labradour effective capture policy:", file=sys.stderr)
                 print(json.dumps(policy.describe(workspace, [args.record, events]), indent=2), file=sys.stderr)
             from .ui import Harness
-            harness = Harness(command, workspace, events, args.side, args.agent_width, args.activity_height,
+            harness = Harness(command, workspace, events, args.side or "left",
+                              args.agent_width if args.agent_width is not None else .5,
+                              args.activity_height if args.activity_height is not None else .5,
                               args.watch, args.watch_backend, args.record, policy,
                               collector=args.collector or bool(args.hooks and args.record),
-                              adapter_provider=args.hooks if args.record else None)
+                              adapter_provider=args.hooks if args.record else None,
+                              layout_tree=preset(args.layout) if args.layout else None)
             try:
                 curses.wrapper(harness.run)
                 if harness.child and harness.child.status is None:

@@ -2,7 +2,7 @@
 
 Date: 2026-10-06. Status: Phase 3 layout specification complete; runtime implementation belongs to Phase 4. Companion architecture: [AgentIDEPlan.md](AgentIDEPlan.md).
 
-The layout contract below supports arbitrary binary arrangements of the same three panes. Activity-above-Visualization is the default preset. The current harness still implements only its existing side/ratio controls, without persistence or a layout editor. Proposed commands and configuration in this document are implementation requirements, not commands available today. Phase 3 review scenarios and Phase 4 implementation gates are in [docs/Phase3.md](docs/Phase3.md).
+The layout contract below supports arbitrary binary arrangements of the same three panes. Activity-above-Visualization is the default preset. Phase 4's foundation now implements validated trees, geometry and four built-in `--layout` presets alongside legacy side/ratio controls. File configuration, persistence and the command editor remain implementation requirements. Current availability is documented in [docs/Phase4.md](docs/Phase4.md); the full implementation gates are in [docs/Phase3.md](docs/Phase3.md).
 
 ## 1. Screen structure
 
@@ -130,7 +130,7 @@ At 140 columns × 40 rows, reserve one header and one footer row, leaving 140 ×
 
 ### 2.3 Persistence, precedence and migration
 
-Proposed launch options are `--layout NAME`, `--layout-config FILE`, and `--ignore-layout-config`. These are Phase 4 work. Discover configuration once at startup in this order, lowest to highest:
+The complete launch contract includes `--layout NAME`, `--layout-config FILE`, and `--ignore-layout-config`. Only built-in names through `--layout` are available in the foundation slice; configuration files and discovery remain pending. Discover configuration once at startup in this order, lowest to highest:
 
 1. Built-in presets and defaults.
 2. User file: `$XDG_CONFIG_HOME/labradour/layout.json`, or `~/.config/labradour/layout.json` when XDG_CONFIG_HOME is unset or not absolute, on macOS and Linux.

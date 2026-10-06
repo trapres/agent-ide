@@ -153,7 +153,9 @@ Typing `j`, `k`, or `f` in the Agent pane sends those characters to the agent. F
 
 Resize your outer terminal normally; Labradour updates the Agent's PTY dimensions. Below 100 columns or 28 rows, the focused pane fills the screen. Focus another pane to see it. Layout changes last for the current session.
 
-Phase 3 now specifies named presets, nested row/column splits, Agent above the review panes, reordered panes, a keyboard editor, and explicit user/workspace preference saves. These remain Phase 4 implementation work: the current launcher does not accept `--layout`/`--layout-config` or load layout JSON, and Ctrl-] then `:` does not open an editor yet. See [the layout contract](AgentUI.md#2-layout-configuration-and-resizing) and [Phase 3 examples and acceptance scenarios](docs/Phase3.md).
+Phase 4's layout foundation now supports `--layout default`, `agent-right`, `agent-top`, or `visualization-top`. For example, run `python3 -m labradour run --demo --layout agent-top` to put Agent above the two review panes. With a preset, prefix-Tab follows pane order in the tree and prefix-Shift-Tab reverses it. Mirror reflects columns; width/height shortcuts adjust the nearest matching split, or report that none exists. Do not combine `--layout` with the legacy side/ratio launch flags.
+
+Preferences remain session-local. Custom layout files, `--layout-config`, a keyboard editor, and explicit user/workspace saves are still pending; Ctrl-] then `:` does not open an editor yet. See [Phase 4 behavior and checks](docs/Phase4.md), [the layout contract](AgentUI.md#2-layout-configuration-and-resizing), and [Phase 3 acceptance scenarios](docs/Phase3.md).
 
 ## Exit and review saved history
 
