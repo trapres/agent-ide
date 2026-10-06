@@ -175,7 +175,37 @@ python3 -m labradour run --workspace /path/to/project -- claude
 
 Use `--scope user` for a user default (also the save command's default scope). An existing higher-priority workspace file can override a user save. Saves preserve other definitions and use an atomic replacement. They never occur automatically on launch, resize, focus or exit. A file changed since loading causes a refusal; reload/retry instead of discarding that change. `--confirm-shadow` explicitly permits shadowing an inherited name; `--confirm-replace` permits replacing an ignored/invalid destination. Unsupported schema versions, oversized files and non-regular/symlinked destinations remain refused.
 
-Press **Ctrl-] then `i`** during a session to toggle layout diagnostics in Visualization: sources, warning reasons, current tree, requested/effective ratios, geometry and unsaved changes. Ordinary session shortcuts remain transient. The in-session keyboard editor and save-current-session command are next-slice work; Ctrl-] then `:` does not open an editor yet. See [Phase 4 checks](docs/Phase4.md), [the layout contract and JSON examples](AgentUI.md#2-layout-configuration-and-resizing), and [Phase 3 acceptance scenarios](docs/Phase3.md).
+Press **Ctrl-] then `i`** during a session to toggle layout diagnostics in Visualization: sources, warning reasons, current tree, requested/effective ratios, geometry and unsaved changes. Ordinary session shortcuts remain transient. The in-session editor is available through **Ctrl-] then `:`**; commands below edit and save the current live tree. See [Phase 4 checks](docs/Phase4.md), [the layout contract and JSON examples](AgentUI.md#2-layout-configuration-and-resizing), and [Phase 3 acceptance scenarios](docs/Phase3.md).
+
+## Edit layouts during a session
+
+Press **Ctrl-] then `:`** from any pane. The layout menu covers the display while the agent and recorder stay live at their existing dimensions. Type a registered command and press Enter; the menu stays open. Escape or Ctrl-C closes it and preserves focus/selection. Menu text, paste and navigation do not reach the agent. Ctrl-Q still quits Labradour.
+
+```text
+layout use agent-top
+layout swap activity visualization
+layout axis main columns
+layout ratio main 6000
+layout flip review
+layout reset default
+layout status
+```
+
+The tree lists pane names and split IDs (`main`/`review` in the presets), axes and requested/effective ratios. Use those IDs in commands. Invalid commands leave the tree unchanged with a visible reason. `reset` selects the original built-in even when configuration shadows its name. Up/Down and PageUp/PageDown scroll menu details in small terminals; typing returns to the command prompt.
+
+For a preview, enter `layout preview`, then your normal edit commands. The preview tree changes while the applied windows and Agent PTY size stay unchanged. `layout apply` commits it; `layout cancel` or Escape discards it. Commands outside preview mode apply immediately. Focus, paused follow, selected event and detail scroll remain intact.
+
+Save the applied current tree explicitly:
+
+```text
+layout save coding workspace
+layout save personal user
+layout reload
+```
+
+Saves run off the input thread, preserve other definitions, and use the same conflict checks as CLI saves. Add `--confirm-shadow` when intentionally shadowing an inherited name, or `--confirm-replace` when replacing an ignored/invalid file; unsupported versions remain protected. Saving is refused while previewing. If reload would discard unsaved edits or a preview, repeat `layout reload --discard` only when you intend to discard them.
+
+Reload rereads discovery plus the original explicit file/ignore setting; it selects the active disk preference rather than reapplying the initial CLI name/legacy ratios. Live focus stays where it was, even if the file's initial-focus preference changes. Disk errors leave the current tree usable. Layout edits wait while a save/reload runs; native input, collection, focus and maximize continue after closing the menu. Quitting during a pending save remains available; inspect the file/status afterward because the disk job may have completed or been interrupted. No automatic save occurs on menu close or exit.
 
 ## Exit and review saved history
 

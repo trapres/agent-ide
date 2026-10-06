@@ -42,6 +42,8 @@ class Harness:
             raise ValueError("unknown initial focus")
         self.focus = initial_focus
         self.layout_config = layout_config
+        from .layout_editor import LayoutEditor
+        self.layout_editor = LayoutEditor(layout_config) if layout_config is not None else None
         self.layout_view = False
         self.maximized = False
         self.actions = []
@@ -63,6 +65,7 @@ class Harness:
         self.policy_view = bool(recording)
         self.pairs = {}
         self.notice = "pyte terminal | provider coverage unverified"
+        self.resize_notice = ""
         self.running = True
 
     def geometry(self, screen):
@@ -76,7 +79,13 @@ class Harness:
         """Focus changes in a batch must resize before forwarding native input."""
         if self.child is not None and "agent" in geometry:
             h, w = geometry["agent"].content_size
-            self.child.resize(h, w)
+            try:
+                self.child.resize(h, w)
+            except OSError as exc:
+                self.notice = "Agent resize failed; previous PTY size retained: " + str(exc)
+                self.resize_notice = self.notice
+                return
+            self.resize_notice = ""
             if (self.terminal.rows, self.terminal.columns) != (h, w):
                 self.terminal.resize(h, w)
 
@@ -114,8 +123,22 @@ class Harness:
                     self.selected = len(self.actions) - 1
 
     def handle(self, kind, token):
+        if kind == "command" and token == b"q":
+            self.running = False
+            return
+        if self.layout_editor and self.layout_editor.open:
+            candidate = self.layout_editor.input(kind, token, self.layout_tree)
+            if candidate is not None:
+                self.layout_tree = candidate
+            return
         if kind == "command":
             key = token.decode("ascii", "ignore")
+            if key == ":" and self.layout_editor:
+                self.layout_editor.begin()
+                return
+            if self.layout_editor and self.layout_editor.pending and key in ("m", "+", "-", "[", "]"):
+                self.notice = "Layout disk operation running; wait before changing layout"
+                return
             if key in ("a", "l", "v"):
                 self.focus = {"a": "agent", "l": "activity", "v": "visualization"}[key]
             elif key in ("\t", "\x1b[Z"):
@@ -138,7 +161,7 @@ class Harness:
                     self.layout_tree, found = adjust_share(self.layout_tree, "agent" if width else "activity",
                         "columns" if width else "rows", 500 if key in ("+", "]") else -500)
                     if not found:
-                        self.notice = "No %s split for pane; layout editor is not implemented yet" % ("width" if width else "height")
+                        self.notice = "No %s split for pane; use Ctrl-] : layout menu" % ("width" if width else "height")
                 elif key in ("+", "-"):
                     self.agent_fraction = min(.7, max(.3, self.agent_fraction + (.05 if key == "+" else -.05)))
                 else:
@@ -155,7 +178,7 @@ class Harness:
             elif key == "q":
                 self.running = False
             else:
-                self.notice = "Prefix: a/l/v focus | Tab cycle | m mirror | z maximize | p policy | +/- width | [/] height | q stop"
+                self.notice = "Prefix: : layout menu | i layout status | a/l/v focus | Tab cycle | m mirror | z maximize | q stop"
             return
         if kind == "literal":
             self.child.send(token)
@@ -274,8 +297,12 @@ class Harness:
             else:
                 self.add(window, 1, 1, "Select an action; run the fake agent to emit events")
         footer = "Ctrl-Q quit | Ctrl-] ? help | " + self.notice
+        if self.resize_notice:
+            footer += " | " + self.resize_notice
+        if self.layout_editor and not self.layout_editor.open and self.layout_editor.message.startswith(("Layout error:", "Layout saved:", "Layout reloaded")):
+            footer += " | " + self.layout_editor.message
         if self.layout_config and self.layout_config.warnings:
-            footer = "Ctrl-Q quit | " + self.notice + " | LAYOUT WARNING (Ctrl-] i): " + self.layout_config.warnings[0]
+            footer += " | LAYOUT WARNING (Ctrl-] i): " + self.layout_config.warnings[0]
         if self.recorder:
             metrics = self.recorder.metrics
             if self.adapter_provider:
@@ -289,9 +316,20 @@ class Harness:
         if self.terminal.unsupported:
             footer += " | unsupported VT: %s" % len(self.terminal.unsupported)
         if self.router.prefix:
-            footer = "Ctrl-Q quit | PREFIX: a/l/v focus | m mirror | z maximize | p policy | +/- width | [/] height | q quit"
+            footer = "Ctrl-Q quit | PREFIX: : layout menu | i layout status | a/l/v focus | m mirror | z maximize | q quit"
         self.add(screen, rows - 1, 0, footer)
-        if "agent" in geometry and self.focus == "agent" and self.terminal.cursor_visible:
+        if self.layout_editor and self.layout_editor.open:
+            # Overlay covers cells, not controllers: native dimensions and buffers stay live.
+            for y in range(1, rows - 1):
+                self.add(screen, y, 0, " " * columns)
+            lines = self.layout_editor.lines(self.layout_tree, rows, columns, self.focus, self.maximized)
+            for y, line in enumerate(lines[self.layout_editor.offset:self.layout_editor.offset + max(0, rows - 2)], 1):
+                self.add(screen, y, 0, line, curses.A_BOLD if y == 1 else 0)
+            try:
+                curses.curs_set(0)
+            except curses.error:
+                pass
+        elif "agent" in geometry and self.focus == "agent" and self.terminal.cursor_visible:
             rect = geometry["agent"]
             y = rect.y + 1 + min(self.terminal.y, rect.content_size[0] - 1)
             x = rect.x + 1 + min(self.terminal.x, rect.content_size[1] - 1)
@@ -366,6 +404,13 @@ class Harness:
                 if screen.getmaxyx() != (actual.lines, actual.columns):
                     curses.resizeterm(actual.lines, actual.columns)
                 geometry = self.geometry(screen)
+                if self.layout_editor:
+                    result = self.layout_editor.poll()
+                    if result is not None:
+                        self.layout_config, candidate = result
+                        if candidate is not None:
+                            self.layout_tree = candidate
+                        geometry = self.geometry(screen)
                 self.sync_agent_size(geometry)
                 # Hidden agent retains its previous usable PTY size.
                 output = self.child.read()
@@ -386,8 +431,9 @@ class Harness:
                     if not data:
                         break
                     for kind, token in self.router.feed(data):
+                        before = self.layout_tree
                         self.handle(kind, token)
-                        if kind == "command":
+                        if kind == "command" or self.layout_tree != before:
                             self.sync_agent_size(self.geometry(screen))
         finally:
             os.write(1, b"\x1b[?2004l")

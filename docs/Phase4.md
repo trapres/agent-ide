@@ -31,7 +31,7 @@ Try `visualization-top`: Visualization should be above Activity. Prefix-Tab visi
 
 The suite has 116 tests, including ten new layout tests. Full macOS/Python 3.9 and Linux/Python 3.11 runs pass. Coverage includes all pane permutations, both nesting shapes and split axes, extreme/constrained ratios, complete area coverage without overlap, invalid/cyclic decoded trees, reverse traversal, hidden PTY sizing, preserved state, rendered Agent-above-review geometry and same-batch input after focus changes. Existing recorder, adapter, cleanup and legacy geometry regressions also pass.
 
-The configuration/persistence slice below extends this foundation. Subsequent slices add the in-session editor, action/effect Activity projection, historical built-in visualizers and saved-session review/acceptance. Native human rendering/input checks remain necessary after the broader UI integration.
+The configuration/persistence slice below extends this foundation. The editor slice below extends the configuration slice. Subsequent slices add action/effect Activity projection, historical built-in visualizers and saved-session review/acceptance. Native human rendering/input checks remain necessary after the broader UI integration.
 
 
 ## Layout configuration and persistence slice
@@ -59,4 +59,42 @@ Manual check: run the save command above in a disposable workspace, then inspect
 
 **Validation:** all 128 tests pass on macOS/Python 3.9 and Linux/Python 3.11, including 12 configuration tests covering layer precedence, strict/bounded decoding, files/FIFOs/symlinks, legacy flags, save/restart, overwrite confirmations, newer-version preservation, lock contention, external changes, staging failure, diagnostics, CLI roundtrip and a custom-layout PTY launch with initial review focus.
 
-**Next:** the in-session command editor and save-current-tree/reload/reset flows. The backing persistence API already accepts session-edited immutable trees; this slice exposes CLI saves and live diagnostics. The full historical review views and external plugin runtime remain later work.
+**Next after the configuration slice:** the in-session editor, implemented below. Historical review views and external plugin transport remain later work.
+
+
+## Layout editor and interaction acceptance slice
+
+Ctrl-] then `:` opens an in-session layout overlay, preserving its owning pane's focus. It accepts bounded ASCII registered commands, never shell execution. Enter executes; Escape/Ctrl-C closes without sending text to the native CLI; Ctrl-Q quits globally. Up/Down and PageUp/PageDown scroll details; typing restores the prompt. The tree shows pane identities, split IDs, axes, requested/effective ratios, unsaved state and compact reason.
+
+Implemented commands: `layout use NAME`, `swap PANE PANE`, `flip SPLIT_ID`, `axis SPLIT_ID rows|columns`, `ratio SPLIT_ID BPS`, `reset NAME`, `status`, `preview`, `apply`, `cancel`, `save NAME user|workspace`, and `reload`. Prefix every operation with `layout`. Saves accept explicit `--confirm-shadow`/`--confirm-replace`; reload requires `--discard` before dropping unsaved edits/preview. Original built-in reset bypasses a shadowing custom definition without writing a file.
+
+Edits outside preview apply immediately. Preview changes only its candidate tree; Apply commits, Cancel/Escape discards. Input after Apply sees the resized existing PTY. The terminal, recorder/collector, current focus, selected event, paused follow and detail scroll stay attached to their original controllers. A failed PTY resize retains the previous positive dimensions with a recoverable notice; drawing clips to the new viewport while later frames retry.
+
+Save/reload work runs outside the input thread on a cloned configuration, with one outstanding disk job and no queued layout edits. A completed save updates the saved baseline without replacing the live tree. Reload rereads user/workspace/original explicit-file layers, honoring the original ignore setting, and selects their active preference without startup name/legacy-ratio overrides. Neither completion replaces live focus. Disk errors keep the applied tree and unsaved state usable. Closing the menu does not cancel an already authorized disk job. Quit remains bounded; quitting during a pending save may leave an installed file or an unfinished staging file, so inspect disk status on the next launch. No disk completion is promised after process exit.
+
+Automated acceptance adds eight editor tests: all operations and invalid edits, preview/reset, save/reload/conflict and confirmation flows, failed reload, slow disk with responsive native input, paste/control isolation, preserved controllers/selection and recoverable resize failure, and a rendered live-recorder run through canceled/applied previews, persistence, reload confirmation, compact menu and clean shutdown. Existing broad layout, recorder and native-hook regressions remain required.
+
+Full regression validation: **136 tests pass on macOS/Python 3.9 (37.677 seconds) and Linux/Python 3.11 (17.748 seconds)**. Human native review remains the checklist below.
+
+### Manual native interaction checks
+
+Repeat in a disposable recorded workspace with each native provider in your actual terminal. Keep normal trust/approval settings. Record terminal/provider/platform versions and PASS/FAIL with a reproduction for any defect:
+
+| Check | Expected result |
+| --- | --- |
+| Open menu from each pane, then Escape | Same focused pane, historical selection and scroll; no menu text reaches native input |
+| Native approval visible, open/cancel menu | Same pending approval on return; no approval answered by editing |
+| `layout preview`, `layout use agent-top`, Escape | Original geometry and native dimensions retained |
+| Repeat preview then `layout apply` | New geometry; same native session; correct `size` in demo and usable native redraw |
+| Swap/flip/axis/ratio, invalid ID/range, reset | Correct tree ordering/ratios; invalid command leaves it unchanged; reset original preset |
+| Select past activity, apply/mirror/maximize/compact | Paused selection/detail scroll retained; collection continues |
+| Paste control-containing text in menu and in Agent | Menu controls do not submit/quit; normal native bracketed paste remains usable |
+| Save under a new workspace name, reload, restart | Saved current tree restored; other destination definitions retained |
+| Edit after save, `layout reload`, then `--discard` | First attempt refuses, second reloads; focus retained |
+| Externally edit destination, attempt save | Conflict/error shown, live tree and external file preserved |
+| Resize while menu open, shrink/grow, scroll details | Menu stays usable; preview alone causes no PTY resize; compact/maximize indicators are consistent |
+| Alternate screen, colors, terminal history, normal quit | No lost native input/buffers or stale text; completed recording with no cleanup gap |
+
+These real-provider visual/approval checks are human acceptance, not implied by demo tests. Grouped action/effect selection and prepared visualizer-state acceptance remain in their next slices.
+
+**Next slice:** action/effect Activity projection.

@@ -46,6 +46,8 @@ The default native watchdog backend is kqueue on macOS and the platform default 
 | `Ctrl-]` then `m` | Mirror the agent side |
 | `Ctrl-]` then `z` | Maximize/restore focused pane |
 | `Ctrl-]` then `p` | Toggle effective capture policy in Visualization |
+| `Ctrl-]` then `:` | Open layout editor; Escape closes and cancels preview |
+| `Ctrl-]` then `i` | Toggle layout source/geometry diagnostics |
 | `Ctrl-]` then `b` / `n` | Page back through terminal history / return to live terminal |
 | `Ctrl-]` then `+` / `-` | Change agent width |
 | `Ctrl-]` then `]` / `[` | Change activity height |
@@ -92,7 +94,7 @@ Retention removes whole older sessions, compacts their journal rows, deletes the
 
 Default geometry is half-width Agent plus stacked quarter-screen review panes. Terminals smaller than 100×28 use the focused pane full screen. Session layout adjustments are not yet persisted. [Phase 3's completed specification](docs/Phase3.md) defines arbitrary split trees, named presets, editing, persistence and focus/resize acceptance; Phase 4 implements those features.
 
-[Phase 4's layout system](docs/Phase4.md) provides four presets through `--layout`: `default`, `agent-right`, `agent-top`, and `visualization-top`, plus custom names from layered v1 JSON files. Try `python3 -m labradour run --demo --layout agent-top`. Inspect with `python3 -m labradour layout status`, save explicitly with `layout save NAME --scope user|workspace`, or load a file with `run --layout-config FILE`. Ctrl-] then `i` displays source/geometry diagnostics. The in-session editor and full review views are subsequent slices.
+[Phase 4's layout system](docs/Phase4.md) provides four presets through `--layout`: `default`, `agent-right`, `agent-top`, and `visualization-top`, plus custom names from layered v1 JSON files. Try `python3 -m labradour run --demo --layout agent-top`. Inspect with `python3 -m labradour layout status`, save explicitly with `layout save NAME --scope user|workspace`, or load a file with `run --layout-config FILE`. Ctrl-] then `i` displays source/geometry diagnostics. Ctrl-] then `:` opens the layout editor with preview/apply/cancel and current-session save/reload/reset. Full review views are subsequent slices.
 
 Run verification and probes:
 

@@ -2,7 +2,7 @@
 
 Date: 2026-10-06. Status: Phase 3 layout specification complete; runtime implementation belongs to Phase 4. Companion architecture: [AgentIDEPlan.md](AgentIDEPlan.md).
 
-The layout contract below supports arbitrary binary arrangements of the same three panes. Activity-above-Visualization is the default preset. Phase 4 now implements validated trees, geometry, four presets, layered file configuration, initial focus, diagnostics and explicit CLI persistence alongside legacy side/ratio controls. The in-session command editor remains pending. Current availability is documented in [docs/Phase4.md](docs/Phase4.md); the full implementation gates are in [docs/Phase3.md](docs/Phase3.md).
+The layout contract below supports arbitrary binary arrangements of the same three panes. Activity-above-Visualization is the default preset. Phase 4 now implements validated trees, geometry, four presets, layered file configuration, initial focus, diagnostics and explicit CLI persistence alongside legacy side/ratio controls. The in-session command editor, preview/apply/cancel and save/reload/reset flows are now implemented. Current availability is documented in [docs/Phase4.md](docs/Phase4.md); the full implementation gates are in [docs/Phase3.md](docs/Phase3.md).
 
 ## 1. Screen structure
 
@@ -147,7 +147,7 @@ Legacy `--side`, `--agent-width` and `--activity-height` remain supported. If an
 
 Edits are session-local until explicit `layout save NAME user|workspace`. Save the current tree under NAME and select it as active, preserving other valid definitions in that destination. User saves write the user file; workspace saves write only the launched workspace file and may appear as ordinary workspace changes in recordings. Never save automatically during resize, maximize, focus, launch, or shutdown. Saving an ignored/invalid destination requires explicit confirmation to replace it; warn before shadowing an inherited name. Use a same-directory temporary file, restrictive permissions, flush/fsync and atomic replace. Refuse a destination changed since it was read; let the user reload/retry. A failed save leaves the session layout usable with an unsaved/error notice. Do not write to the recording store or native provider settings.
 
-Current slice availability: `python3 -m labradour layout status` inspects the resolved configuration; `layout save NAME --scope user|workspace` explicitly saves the CLI-selected tree, with `--confirm-replace`/`--confirm-shadow` for the cases above. Ctrl-] then `i` displays live source/geometry diagnostics. The persistence API accepts an edited session tree, but in-session menu saves/reload remain the next editor slice. Non-regular/symlinked config files and symlinked direct config directories are refused; oversized destinations are not replaced. Cooperating saves use a nonblocking advisory lock plus identity/content checks. An unrelated external editor can race the final check/replace; this is not an operating-system transaction against arbitrary uncooperative writers. Workspace layout changes obey capture policy; `.labradour` is excluded by default.
+Current slice availability: `python3 -m labradour layout status` inspects the resolved configuration; `layout save NAME --scope user|workspace` explicitly saves the CLI-selected tree, with `--confirm-replace`/`--confirm-shadow` for the cases above. Ctrl-] then `i` displays live source/geometry diagnostics. The persistence API accepts an edited session tree, and in-session menu saves/reload are available through Ctrl-] then `:`. Non-regular/symlinked config files and symlinked direct config directories are refused; oversized destinations are not replaced. Cooperating saves use a nonblocking advisory lock plus identity/content checks. An unrelated external editor can race the final check/replace; this is not an operating-system transaction against arbitrary uncooperative writers. Workspace layout changes obey capture policy; `.labradour` is excluded by default.
 
 Persist tree/name/initial-focus preferences only. Current focus, compact/maximize state, terminal dimensions, action selection, filters, follow mode, visualization tabs/scroll/job state and provider credentials are not layout-file fields. A loaded layout cannot replace those live states.
 
@@ -155,7 +155,7 @@ Persist tree/name/initial-focus preferences only. Current focus, compact/maximiz
 
 `Ctrl-]` then `:` opens the IDE command menu. It accepts only registered IDE commands, never a shell command. The editor offers a tree preview labelled with split IDs, pane names, axes and requested/effective ratios. All operations are keyboard accessible. Target split IDs belong to the active tree; invalid targets leave it unchanged with a reason.
 
-| Proposed menu command | Effect |
+| Menu command | Effect |
 | --- | --- |
 | `layout use NAME` | Switch to a named built-in/custom tree |
 | `layout swap PANE PANE` | Exchange two leaf identities; ratios remain attached to split nodes |
@@ -165,11 +165,12 @@ Persist tree/name/initial-focus preferences only. Current focus, compact/maximiz
 | `layout reset NAME` | Load the original named built-in into session state; do not write a file |
 | `layout save NAME user|workspace` | Explicitly persist the current valid tree |
 | `layout reload` | Reload validated disk layers; ask before discarding unsaved edits |
-| `layout status` | Inspect sources, tree, minimums, compact reason, and save state |
+| `layout status` | List available names; tree/ratios/compact/save state remain visible; Ctrl-] `i` exposes full source diagnostics outside the menu |
+| `layout preview` / `layout apply` / `layout cancel` | Begin preview, commit candidate, or discard candidate |
 
 Swaps, flips and axis changes can produce all binary arrangements of the three leaves. Repeated axis changes allow a row/column of three panes. New named arrangements are saved from the session tree. There is no arbitrary JSON or shell evaluation inside the menu.
 
-Each change validates a candidate tree, computes geometry, then commits one UI transaction. An editor preview does not resize the PTY until Apply; Escape cancels the preview. Menu commands apply immediately after validation. They preserve focused pane identity. Switching to a layout that does not fit enters compact mode without altering the saved ratios.
+Each change validates a candidate tree and computes geometry before the next draw/input transaction. An editor preview does not resize the PTY until Apply; Escape cancels the preview. Menu commands apply immediately after validation. They preserve focused pane identity. Switching to a layout that does not fit enters compact mode without altering the saved ratios.
 
 Keep current shortcuts with explicit arbitrary-tree semantics. `m` horizontally reflects the whole tree by flipping every `columns` node and complementing its ratio; `rows` nodes stay unchanged. `+`/`-` increase/decrease Agent's requested share by 500 basis points at its nearest `columns` ancestor. `]`/`[` increase/decrease Activity's requested share at its nearest `rows` ancestor. If the pane is in `second`, adjust the stored first ratio in the opposite direction. At an absent matching ancestor, report “no width/height split; use layout menu” without changing geometry. Clamp shortcuts to the valid range. At constrained sizes show requested and effective ratios; physical resize never rewrites the requested ratio. `z` toggles maximize for the focused pane independently of compact mode.
 
@@ -185,7 +186,7 @@ In focused-only modes the visible pane fills the content area regardless of its 
 
 When Agent is visible, resize its existing PTY and terminal model to its content rectangle before drawing the next frame. Send a resize only when content dimensions actually change; the normal PTY resize delivers SIGWINCH. Coalesce physical resize bursts for at most 50 ms without blocking input or capture. When Agent is hidden because review is maximized/compact, retain its last visible positive dimensions and continue consuming output; do not resize it to the review rectangle or 0 × 0. If initially hidden, initialize at the Agent's ordinary tree geometry when it fits, otherwise the focused-only content size. Refocusing Agent applies its visible content size before forwarding newly focused input. No layout operation respawns/replays the child or alters its arguments.
 
-Terminal history and native alternate-screen state remain owned by the existing terminal model. Reflow/cursor clamping follows the terminal backend's capabilities; do not promise preservation of identical native line wrapping across sizes. Preserve buffers, modes and queued bytes, and let the provider redraw through its normal resize behavior. If a resize fails, retain the previous valid presentation/PTY size and show a recoverable notice.
+Terminal history and native alternate-screen state remain owned by the existing terminal model. Reflow/cursor clamping follows the terminal backend's capabilities; do not promise preservation of identical native line wrapping across sizes. Preserve buffers, modes and queued bytes, and let the provider redraw through its normal resize behavior. If a resize fails, retain the previous valid PTY/model dimensions, clip existing content to the new viewport, show a recoverable notice and retry on later frames.
 
 ### 2.6 Live state and rendering ownership
 
@@ -314,3 +315,10 @@ All operations must be keyboard accessible. Use visible text labels for focus/st
 8. With gitdiffviz unavailable, every action is still inspectable in the quarter-screen pane. With it installed, graphical opening is explicit and uses the selected historical evidence.
 
 The Phase 3 layout acceptance matrix in [docs/Phase3.md](docs/Phase3.md) adds reordered/nested layouts, validation, persistence, constrained geometry and state preservation. Phase 3 defines those scenarios; passing the runtime gates requires Phase 4 implementation in [AgentIDEPlan.md](AgentIDEPlan.md). The optional graphical exporter extends the same visualizer registry in Phase 5.
+
+
+## Current layout editor acceptance
+
+The layout menu is an overlay over existing pane controllers. It consumes its own bounded ASCII command buffer and ignores pasted control bytes. Preview commands edit a separate immutable tree; Apply changes live geometry before subsequent native input. Escape cancels preview and closes the overlay without leaking keys. Disk save/reload jobs run on a single background job per editor; layout edits are temporarily blocked during the job while native input and collection continue. Reload requires `--discard` for unsaved changes and preserves live focus. It rereads disk layers with the original explicit-file/ignore settings, without reapplying startup name/legacy-ratio overrides.
+
+Automated acceptance covers schema/editor semantics, same-session state, disk failures/conflicts, blocked disk work with continued input, and rendered recorder/PTY preview/save/reload/compact behavior. Human native colors, alternate-screen/history/paste and approval usability still need the [Phase 4 checklist](docs/Phase4.md#layout-editor-and-interaction-acceptance-slice). Grouped action selection and visualization generations will be tested when those later controllers exist.
