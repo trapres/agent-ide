@@ -97,4 +97,21 @@ Repeat in a disposable recorded workspace with each native provider in your actu
 
 These real-provider visual/approval checks are human acceptance, not implied by demo tests. Grouped action/effect selection and prepared visualizer-state acceptance remain in their next slices.
 
-**Next slice:** action/effect Activity projection.
+**Next after the editor:** action/effect Activity projection, implemented below.
+
+
+## Action/effect Activity projection slice
+
+Recorded Activity now displays the provider-neutral correlation projection. It reads the durable session journal off the curses/input thread, with one background replay at a time. New notifications trigger replay at up to 10 Hz, and a two-second periodic reread repairs missed/dropped display notifications. Journal sequence orders rows; it does not imply causal order. Process exit marks still-unfinished calls incomplete in the live view, independently of the recorder's final durable session status.
+
+One primary row represents each scoped call and updates through its observed lifecycle. Identity comes from the existing projector; missing scope stays unlinked/unknown. Session/turn/actor observations and health gaps remain inspectable. Effects expand under candidate calls; shared effects retain a common canonical ID and separate parent-context row IDs. Every effect retains external-or-unknown attribution, including single-call candidates. Unassigned checkpoint changes appear independently. Opaque completion results explicitly display unknown result; request hooks never manufacture a running outcome.
+
+Selection uses stable row/action/effect identities. New activity refreshes selected evidence without moving paused selection; unread counts track new primary rows. Expanded state survives replay and layout changes. Filtering by actor/tool/state/path/turn/text preserves a hidden selection with a visible outside-filter notice; child matches retain parent context. `f`/End resumes follow to the newest visible call or observation. Left/Right/Enter collapse/expand; `d` focuses details. Ctrl-] `r` toggles raw journal rows without destroying the prior identity. Non-recorded launches retain their legacy event-card behavior.
+
+Visualization still presents JSON rather than historical source views. Action details include the projected lifecycle, correlation/identity quality, boundaries, raw recorded observations/arguments/results, linked effects and limitations. Effect details include the canonical effect, checkpoint interval and snapshot metadata. Summary targets are clipped while details retain recorded values. Unchanged projections, filtered row lists and detail serialization are cached across paint/resize; replay and file reads remain outside the input thread. Large-session performance and richer background visualizer preparation remain later acceptance work.
+
+**Validation:** all 143 tests pass on macOS/Python 3.9 (38.764 seconds) and Linux/Python 3.11 (18.139 seconds), including seven new Activity tests. They cover in-place lifecycle updates, unread/follow behavior, shared intervals without ownership, child selection/collapse, filter-hidden selection, unknown identities and final missing outcomes, raw journal restoration, Unicode filter input, durable replay without display notifications, and a rendered authenticated PTY fixture through grouped completion/filter/journal/clean shutdown. Final cache changes are separately rechecked on both platforms.
+
+Manual check: launch a disposable recording with native hooks, execute two harmless read calls and an edit/revert, then focus Activity. Select the first call; later callbacks must update the correct row while selection stays paused. Expand an edit's effects and confirm candidate/unknown attribution. Filter `tool:Read`, then an unmatched term: hidden selection must stay visible in details. Clear with `/`, Ctrl-U, Enter; switch journal/action views with Ctrl-] `r`. Apply a layout change and confirm selection/expanded/filter state survives. Continue native input while browsing. Compare IDs/evidence with `actions RECORDING --session ID` after exit. Normal native trust/approval behavior still applies.
+
+**Next slice:** historical built-in visualizers and read-only evidence access. Saved-session curses review, retention/read coordination and full MVP performance/native visual acceptance remain subsequent work.

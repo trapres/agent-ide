@@ -1,5 +1,7 @@
 # Phase 2 testing guide
 
+**Phase 4 UI update:** recorded Activity now groups action/effect rows. Use Ctrl-] then `r` to inspect the raw journal cards referenced by this guide, including `adapter.event`, boundary and health facts. Historical source visualizers are still pending.
+
 **October 6 user handoff:** the Linux Claude sign-in/check workflow was reported as looking good, and Phase 3 was authorized. This records user acceptance of the exercised workflow. No report or exact row-by-row coverage was supplied; the remaining policy/visual/deployment checklist below still describes the evidence needed for full broad sign-off. Earlier signed-out statements describe the automated preparation state, not the user's subsequent login.
 
 Phase 2 records native hooks, captures workspace checkpoints at tool boundaries, and replays correlated actions without assigning exclusive file ownership. The curses panes still show journal cards. The full historical review UI, layout editor, and visualization plugin runtime are later work; use `actions` to inspect correlation now.

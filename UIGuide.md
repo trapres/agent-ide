@@ -115,9 +115,9 @@ The Agent takes half the screen. Activity and Visualization share the other half
 
 The **Agent** pane accepts normal typing, slash commands, paste, approvals, and Ctrl-C. Input goes to the agent while this pane has focus, except Labradour's reserved controls below.
 
-The **Activity** pane lists observed events. With recording enabled, it includes snapshot intent/completion, filesystem observations, and collector health events. Select an older event to inspect it without stopping the agent. Selecting a snapshot completion shows its saved commit IDs, changed paths, scan interval, and capture quality.
+The **Activity** pane shows a grouped action/effect projection when recording is enabled: one row per scoped tool call, lifecycle updates in place, expandable candidate effects, external/unknown changes and lifecycle/health observations. Unknown identities and outcomes stay explicit. Without recording, it retains the raw hook/event display. Select an older row without stopping the agent; Ctrl-] then `r` switches recorded Activity to the underlying journal view.
 
-The **Visualization** pane currently shows an event detail card as formatted JSON. It follows the selected Activity event. Source diffs and other specialized graphical views are planned; they are not yet embedded in this pane.
+The **Visualization** pane currently shows formatted JSON for the selected action, effect or event. Action details include the original recorded observations, arguments/results where captured, boundaries, candidate effects, notes and limitations. Effect details include their historical checkpoint and attribution quality. Source diffs and other specialized graphical views are planned; they are not yet embedded in this pane.
 
 ## Focus and navigation
 
@@ -138,7 +138,17 @@ Press **Ctrl-]**, release it, then press the command key within two seconds. For
 | `j` / Down in Visualization | Scroll details down |
 | `k` / Up in Visualization | Scroll details up |
 
-Typing `j`, `k`, or `f` in the Agent pane sends those characters to the agent. Focus Activity first to browse history. New events do not move a historical selection while live follow is paused.
+Typing `j`, `k`, or `f` in the Agent pane sends those characters to the agent. Focus Activity first to browse history. New rows do not move a historical selection while live follow is paused. Call lifecycle/evidence updates still refresh that selected row.
+
+## Browse recorded actions and effects
+
+Focus Activity with Ctrl-] then `l`. Use Up/Down or `j`/`k` to select a row and pause follow. Right or Enter expands a call's candidate effects; Left collapses, returning a selected child to its parent. `f` or End resumes follow and selects the newest visible call (or latest observation when no calls exist). The unread counter counts newly added primary rows while follow is paused.
+
+Press `/` to edit a filter. Space-separated terms are combined; use `actor:worker tool:Write state:completed`, `path:src/`, `turn:ID`, or ordinary text. Enter applies, Escape/Ctrl-C cancels, and Ctrl-U clears the input. Filters are case-insensitive substring matches. A path match can reveal child effects with their parent context. Unknown actor/turn identities remain `unknown`. Clearing a filter preserves the previous stable selection. If the selected row is hidden, Activity says **Selection outside filter/view** and Visualization retains its details until you navigate elsewhere.
+
+Press `d` to focus Visualization on the selected details. Use its normal scroll keys. Ctrl-] then `r` toggles the underlying journal view, retaining the selection identity for return. This is useful for inspecting raw lifecycle, snapshots, adapter boundaries and health observations.
+
+Child effects are **candidate intervals**, not proof that a call wrote the file. Their attribution stays external/unknown. A shared checkpoint effect can appear under several candidate calls, with the same canonical effect ID; each remains one tool invocation. Unassigned effects appear independently. A completed hook with opaque results displays `result:unknown`; missing outcomes remain requested/running/awaiting approval while live, or incomplete after process exit. Details preserve missing boundaries and conflicting outcomes. Historical source diffs remain the next slice.
 
 ## Layout and terminal history
 
@@ -227,7 +237,7 @@ Recording captures observed states rather than every write. Short-lived files an
 
 ## Visualizations planned for the review MVP
 
-Phase 4 will turn Activity into an action/effect list with filters and historical selection, and route selected effects to built-in views:
+Phase 4 now provides the recorded action/effect list, filters and stable selection. The next slice routes selected effects to built-in views:
 
 | Selected effect | Planned view |
 | --- | --- |
@@ -242,4 +252,4 @@ Multi-effect tool calls will offer a file/effect picker inside the review panes.
 
 ## Inspecting correlation before the review UI
 
-Run `python3 -m labradour history RECORDING` to find a session, then `python3 -m labradour actions RECORDING --session SESSION_ID`. This prints replayed tool states, explicit actor relationships, output references, checkpoint effects, candidate calls, and evidence gaps. The curses panes still show journal cards; selecting a card does not yet navigate this projection. A candidate call never establishes exclusive file ownership. See [Phase2TestGuide.md](docs/Phase2TestGuide.md) for scenarios and interpretation.
+Run `python3 -m labradour history RECORDING` to find a session, then `python3 -m labradour actions RECORDING --session SESSION_ID`. This prints replayed tool states, explicit actor relationships, output references, checkpoint effects, candidate calls, and evidence gaps. Recorded Activity now displays this projection, with JSON evidence details; Ctrl-] then `r` retains raw journal inspection. The CLI is still useful for complete replay/export. A candidate call never establishes exclusive file ownership. See [Phase2TestGuide.md](docs/Phase2TestGuide.md) for scenarios and interpretation.

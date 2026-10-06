@@ -50,6 +50,11 @@ class Harness:
         self.seen = set()
         self.selected = 0
         self.follow = True
+        from .activity import ActivityModel
+        self.activity = ActivityModel()
+        self.activity_replay = None
+        self.activity_filter_edit = None
+        self.activity_detail_cache = None
         self.scroll = 0
         self.router = InputRouter()
         self.child = None
@@ -109,6 +114,16 @@ class Harness:
             fresh.extend(self.watcher.drain())
             if self.watcher.dropped:
                 self.notice = "watcher dropped %s observations; coverage incomplete" % self.watcher.dropped
+        if self.recorder:
+            if self.activity_replay is None:
+                from .activity import ActivityReplay
+                self.activity_replay = ActivityReplay(self.recording, self.recorder.session)
+            result = self.activity_replay.tick(bool(fresh), 'process-exited' if self.child.status is not None else 'running')
+            if result is not None:
+                self.activity.update(*result)
+                self.follow = self.activity.follow
+            # Recorded Activity comes from durable replay, not the lossy display queue.
+            return
         for record in sorted(fresh, key=lambda r: r.get("received_ns", 0)):
             payload = record.get("payload", {})
             call = payload.get("tool_use_id")
@@ -130,6 +145,21 @@ class Harness:
             candidate = self.layout_editor.input(kind, token, self.layout_tree)
             if candidate is not None:
                 self.layout_tree = candidate
+            return
+        if self.activity_filter_edit is not None:
+            if kind == "key" and token in (b"\x1b", b"\x03"):
+                self.activity_filter_edit = None
+            elif kind == "key" and token in (b"\r", b"\n"):
+                self.activity.set_filter(self.activity_filter_edit.decode("utf-8", "replace"))
+                self.activity_filter_edit = None
+                self.follow = False
+            elif kind == "key" and token == b"\x15":
+                self.activity_filter_edit = bytearray()
+            elif kind == "key" and token in (b"\x7f", b"\x08"):
+                self.activity_filter_edit = bytearray(self.activity_filter_edit.decode("utf-8", "ignore")[:-1].encode())
+            elif kind in ("key", "paste") and not token.startswith(b"\x1b"):
+                self.activity_filter_edit.extend(b for b in token if b >= 32 and b != 127)
+                del self.activity_filter_edit[512:]
             return
         if kind == "command":
             key = token.decode("ascii", "ignore")
@@ -175,6 +205,9 @@ class Harness:
                 self.layout_view = not self.layout_view
                 self.focus = "visualization"
                 self.scroll = 0
+            elif key == "r" and self.recording:
+                self.activity.toggle_journal()
+                self.follow = self.activity.follow
             elif key == "q":
                 self.running = False
             else:
@@ -194,6 +227,23 @@ class Harness:
             if self.focus == "activity":
                 self.layout_view = False
                 self.policy_view = False
+                if self.recording:
+                    if token in (b"j", b"\x1b[B", b"k", b"\x1b[A"):
+                        self.activity.move(1 if token in (b"j", b"\x1b[B") else -1)
+                        self.scroll = 0
+                    elif token in (b"\x1b[C", b"\r", b"\n"):
+                        self.activity.expand()
+                    elif token == b"\x1b[D":
+                        self.activity.expand(False)
+                    elif token in (b"f", b"\x1b[F", b"\x1b[4~"):
+                        self.activity.resume()
+                    elif token == b"/":
+                        self.activity_filter_edit = bytearray(self.activity.filter.encode())
+                    elif token == b"d":
+                        self.focus = "visualization"
+                        self.scroll = 0
+                    self.follow = self.activity.follow
+                    return
                 if token in (b"j", b"\x1b[B"):
                     self.selected = min(len(self.actions) - 1, self.selected + 1) if self.actions else 0
                     self.follow = False
@@ -260,6 +310,31 @@ class Harness:
                         if cell.text:
                             self.add(window, y + 1, x + 1, cell.text, self.color(cell))
             elif name == "activity":
+                if self.recording:
+                    visible = self.activity.visible()
+                    selected = next((i for i, r in enumerate(visible) if r['id'] == self.activity.selected_id), 0)
+                    info = ("Journal" if self.activity.journal else "Actions/effects") + " | unread %d" % self.activity.unread
+                    if self.activity.filter:
+                        info += " | filter: " + self.activity.filter
+                    if self.activity.selection_outside():
+                        info = "Selection outside filter/view | " + info
+                    self.add(window, 1, 1, info)
+                    start = max(0, selected - max(1, h - 1) + 1)
+                    for y, row in enumerate(visible[start:start + max(0, h - 1)], 2):
+                        marker = ("  candidate " if row.get('parent') else "  " if row['kind'] == 'effect' else
+                                  ("- " if row['id'] in self.activity.expanded else "+ ") if row['children'] else "")
+                        label = "%s%s %s %s" % (marker, row['actor'], row['tool'], row['state'])
+                        if row['kind'] == 'action' and 'unknown' in row['payload']['result_outcomes']:
+                            label += " result:unknown"
+                        if row['children']:
+                            label += " [%d effects; candidate interval]" % len(row['children'])
+                        if row['kind'] == 'effect':
+                            label += " [external-or-unknown]"
+                        label += " " + row['target'][:256]
+                        self.add(window, y, 1, label, curses.A_REVERSE if row['id'] == self.activity.selected_id else 0)
+                    if not visible:
+                        self.add(window, 2, 1, "No matching rows" if self.activity.filter else "Loading recorded activity")
+                    continue
                 start = max(0, self.selected - h + 1)
                 for index, action in enumerate(self.actions[start:start + h], start):
                     p = action["payload"]
@@ -286,6 +361,17 @@ class Harness:
                                     ensure_ascii=False, indent=2).splitlines()
                 for y, line in enumerate(lines[self.scroll:self.scroll + h]):
                     self.add(window, y + 1, 1, line)
+            elif self.recording and self.activity.selected() is not None:
+                row = self.activity.selected()
+                revision = (self.activity.revision, row['id'])
+                if self.activity_detail_cache is None or self.activity_detail_cache[0] != revision:
+                    lines = ["View: " + row['kind'] + " details", "Identity: " + row['id'],
+                             "Candidate intervals never establish file ownership."]
+                    lines += json.dumps(self.activity.details(), ensure_ascii=False, indent=2).splitlines()
+                    self.activity_detail_cache = (revision, lines)
+                lines = self.activity_detail_cache[1]
+                for y, line in enumerate(lines[self.scroll:self.scroll + h]):
+                    self.add(window, y + 1, 1, line)
             elif self.actions:
                 p = self.actions[self.selected]["payload"]
                 lines = ["View: " + p.get("operation", "tool/event card"),
@@ -299,6 +385,10 @@ class Harness:
         footer = "Ctrl-Q quit | Ctrl-] ? help | " + self.notice
         if self.resize_notice:
             footer += " | " + self.resize_notice
+        if self.activity_replay and self.activity_replay.error:
+            footer += " | " + self.activity_replay.error
+        if self.activity_filter_edit is not None:
+            footer = "Filter (Enter apply, Escape cancel, Ctrl-U clear): " + self.activity_filter_edit.decode("utf-8", "replace")
         if self.layout_editor and not self.layout_editor.open and self.layout_editor.message.startswith(("Layout error:", "Layout saved:", "Layout reloaded")):
             footer += " | " + self.layout_editor.message
         if self.layout_config and self.layout_config.warnings:

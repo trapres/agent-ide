@@ -48,6 +48,7 @@ The default native watchdog backend is kqueue on macOS and the platform default 
 | `Ctrl-]` then `p` | Toggle effective capture policy in Visualization |
 | `Ctrl-]` then `:` | Open layout editor; Escape closes and cancels preview |
 | `Ctrl-]` then `i` | Toggle layout source/geometry diagnostics |
+| `Ctrl-]` then `r` | Toggle recorded action/effect view and raw journal |
 | `Ctrl-]` then `b` / `n` | Page back through terminal history / return to live terminal |
 | `Ctrl-]` then `+` / `-` | Change agent width |
 | `Ctrl-]` then `]` / `[` | Change activity height |
@@ -68,7 +69,7 @@ python3 -m labradour history /path/to/private-recording --session SESSION_ID
 python3 -m labradour diff /path/to/private-recording BEFORE_COMMIT AFTER_COMMIT
 ```
 
-`--record` includes filesystem watching and waits for baseline capture before starting the agent. Reuse the recording directory for additional sessions in the same workspace. It preserves intermediate changes in private Git history without modifying the project's index or refs. Full checkpoint commit IDs are available in `snapshot.completed` journal records. The live Visualization pane currently shows detail cards; use `diff` for historical source comparisons.
+`--record` includes filesystem watching and waits for baseline capture before starting the agent. Reuse the recording directory for additional sessions in the same workspace. It preserves intermediate changes in private Git history without modifying the project's index or refs. Full checkpoint commit IDs are available in `snapshot.completed` journal records. The live Visualization pane currently shows action/effect/event JSON evidence details; use `diff` for historical source comparisons.
 
 Capture excludes Git administration, recorder data, common credential directories, `.env` files, and dependency/build directories. Large files are metadata-only; recording enforces a hard retained-file-byte budget. Temporary staging requires separate disk space. See [Phase 1 implementation and limits](docs/Phase1.md) before recording a workspace, and [UIGuide.md](UIGuide.md) for navigation.
 
@@ -94,7 +95,7 @@ Retention removes whole older sessions, compacts their journal rows, deletes the
 
 Default geometry is half-width Agent plus stacked quarter-screen review panes. Terminals smaller than 100×28 use the focused pane full screen. Session layout adjustments are not yet persisted. [Phase 3's completed specification](docs/Phase3.md) defines arbitrary split trees, named presets, editing, persistence and focus/resize acceptance; Phase 4 implements those features.
 
-[Phase 4's layout system](docs/Phase4.md) provides four presets through `--layout`: `default`, `agent-right`, `agent-top`, and `visualization-top`, plus custom names from layered v1 JSON files. Try `python3 -m labradour run --demo --layout agent-top`. Inspect with `python3 -m labradour layout status`, save explicitly with `layout save NAME --scope user|workspace`, or load a file with `run --layout-config FILE`. Ctrl-] then `i` displays source/geometry diagnostics. Ctrl-] then `:` opens the layout editor with preview/apply/cancel and current-session save/reload/reset. Full review views are subsequent slices.
+[Phase 4's layout system](docs/Phase4.md) provides four presets through `--layout`: `default`, `agent-right`, `agent-top`, and `visualization-top`, plus custom names from layered v1 JSON files. Try `python3 -m labradour run --demo --layout agent-top`. Inspect with `python3 -m labradour layout status`, save explicitly with `layout save NAME --scope user|workspace`, or load a file with `run --layout-config FILE`. Ctrl-] then `i` displays source/geometry diagnostics. Ctrl-] then `:` opens the layout editor with preview/apply/cancel and current-session save/reload/reset. Recorded Activity now groups tool calls, expands candidate effects, filters rows and preserves stable selection. Historical source visualizers are the next slice.
 
 Run verification and probes:
 

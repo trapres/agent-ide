@@ -2,7 +2,7 @@
 
 Date: 2026-10-06. Status: Phase 3 layout specification complete; runtime implementation belongs to Phase 4. Companion architecture: [AgentIDEPlan.md](AgentIDEPlan.md).
 
-The layout contract below supports arbitrary binary arrangements of the same three panes. Activity-above-Visualization is the default preset. Phase 4 now implements validated trees, geometry, four presets, layered file configuration, initial focus, diagnostics and explicit CLI persistence alongside legacy side/ratio controls. The in-session command editor, preview/apply/cancel and save/reload/reset flows are now implemented. Current availability is documented in [docs/Phase4.md](docs/Phase4.md); the full implementation gates are in [docs/Phase3.md](docs/Phase3.md).
+The layout contract below supports arbitrary binary arrangements of the same three panes. Activity-above-Visualization is the default preset. Phase 4 now implements validated trees, geometry, four presets, layered file configuration, initial focus, diagnostics and explicit CLI persistence alongside legacy side/ratio controls. The in-session command editor, preview/apply/cancel and save/reload/reset flows are now implemented. Recorded Activity now implements stable action/effect selection, filters, candidate effect expansion and raw journal fallback; historical built-in visualizers remain pending. Current availability is documented in [docs/Phase4.md](docs/Phase4.md); the full implementation gates are in [docs/Phase3.md](docs/Phase3.md).
 
 ## 1. Screen structure
 
