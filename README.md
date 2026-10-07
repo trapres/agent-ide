@@ -76,6 +76,8 @@ Capture excludes Git administration, recorder data, common credential directorie
 
 `review DIRECTORY [--session ID]` opens saved Activity and visualization panes without launching an agent, even if the original workspace is gone. Agent becomes a session selector; terminal output cannot be replayed. See the [MVP testing guide](docs/Phase4TestGuide.md) for automated results and remaining human native checks.
 
+Phase 5's [export foundation](docs/Phase5.md) adds explicit JSON evidence exports: Ctrl-] then `x` exports, `t` shows status, and `c` cancels. Live/saved review accepts `--export-cache DIRECTORY`; artifacts use a separate private bounded cache. CLI `export RECORDING --session ID --row list` enumerates selections; use `--row ROW_ID` to export. Graphical formats, gitdiffviz and browser opening remain next slices. See [Phase5TestGuide.md](docs/Phase5TestGuide.md).
+
 Preview or customize capture policy:
 
 ```sh

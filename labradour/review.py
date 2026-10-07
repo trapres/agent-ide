@@ -33,14 +33,14 @@ def load_session(directory, session=None):
 class SavedReview(Harness):
     saved_review = True
 
-    def __init__(self, directory, session=None, layout_config=None):
+    def __init__(self, directory, session=None, layout_config=None, export_cache=None):
         self.directory = Path(directory).resolve()
         initial = load_session(self.directory, session)
         workspace = layout_config.workspace if layout_config else Path.cwd()
         super().__init__([], workspace, self.directory, recording=self.directory,
                          layout_config=layout_config,
                          layout_tree=layout_config.tree if layout_config else None,
-                         initial_focus='activity')
+                         initial_focus='activity', export_cache=export_cache)
         self.policy_view = False
         self.terminal = Terminal(1, 1)
         self.pending = False
@@ -129,6 +129,7 @@ class SavedReview(Harness):
         os.write(1, b'\x1b[?2004h')
         try:
             while self.running:
+                self.export_job.poll()
                 curses.update_lines_cols()
                 actual = os.get_terminal_size(0)
                 if screen.getmaxyx() != (actual.lines, actual.columns):
@@ -150,6 +151,7 @@ class SavedReview(Harness):
                     for kind, token in self.router.feed(data):
                         self.handle(kind, token)
         finally:
+            self.export_job.cancel()
             os.write(1, b'\x1b[?2004l')
             for sig, handler in handlers.items():
                 signal.signal(sig, handler)

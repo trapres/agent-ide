@@ -276,6 +276,23 @@ Phase 4 now provides the recorded action/effect list, filters, stable selection 
 
 Multi-effect tool calls offer expanded Activity effects and an in-pane effect picker. Phase 5 adds optional gitdiffviz graphical exports through an explicit open action. Reviewing an event will use recorded evidence and will not rerun its command. External plugin transport and graphical companions are not implemented.
 
+## Export selected recorded evidence
+
+In live or saved review, **Ctrl-] then x** explicitly exports the selected row as a JSON evidence artifact. A picked effect in Visualization exports that effect when its parent is still selected. Export keeps focus and selection; it runs in the background while Agent input/recording continue. **Ctrl-] then t** toggles export status in Visualization, including the artifact path, source selection/session, size and SHA-256. **Ctrl-] then c** requests cancellation. `s`/`e` restores the historical view. Selecting or resizing a view never exports or opens a window.
+
+The default private cache is `$XDG_CACHE_HOME/labradour/exports` or `~/.cache/labradour/exports`. Set `run`/`review --export-cache DIRECTORY` to choose a separate cache outside the workspace and recording. It is created only on an explicit export. Defaults: 64 MiB per artifact, 128 MiB total including unfinished files, 32 completed artifacts, seven-day lazy expiry. Repeated unchanged exports reuse verified content-addressed artifacts. Expired/oldest artifacts and abandoned pending files are cleaned on a later explicit export; the cache is not a permanent archive.
+
+Artifacts include provenance and recorded payloads/linked observations; a selected effect includes base64 captured before/after bytes and explicit omission/missing-data states. File reads retain the 256 KiB-per-side historical limit. Commands are not rerun. Exports can retain captured private contents after source-session pruning; remove those derived copies explicitly when no longer needed:
+
+```sh
+python3 -m labradour export RECORDING --session SESSION_ID --row list
+python3 -m labradour export RECORDING --session SESSION_ID --row ROW_ID --export-cache CACHE
+python3 -m labradour export-cache --export-cache CACHE
+python3 -m labradour export-cache --export-cache CACHE --clear
+```
+
+Graphical formats, gitdiffviz, browser opening and external plugin RPC are not available yet. [Phase5TestGuide.md](docs/Phase5TestGuide.md) explains expected results, cache behavior and failure checks.
+
 ## Inspecting correlation before the review UI
 
 Run `python3 -m labradour history RECORDING` to find a session, then `python3 -m labradour actions RECORDING --session SESSION_ID`. This prints replayed tool states, explicit actor relationships, output references, checkpoint effects, candidate calls, and evidence gaps. Recorded Activity now displays this projection, with built-in historical views and JSON evidence details; Ctrl-] then `r` retains raw journal inspection. The CLI is still useful for complete replay/export. A candidate call never establishes exclusive file ownership. See [Phase2TestGuide.md](docs/Phase2TestGuide.md) for scenarios and interpretation.

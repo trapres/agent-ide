@@ -6,6 +6,7 @@ from pathlib import Path
 import select
 import signal
 import unicodedata
+import textwrap
 
 from .input import InputRouter
 from .layout import Rect, layout, arrange, pane_order, reflect, adjust_share, compact_reason, parse_tree, tree_dict
@@ -33,7 +34,7 @@ def clip(text, width):
 class Harness:
     def __init__(self, command, workspace, events, side="left", agent_fraction=.5, activity_fraction=.5,
                  watch=False, watch_backend="native", recording=None, policy=None, collector=False, adapter_provider=None,
-                 layout_tree=None, layout_config=None, initial_focus="agent"):
+                 layout_tree=None, layout_config=None, initial_focus="agent", export_cache=None):
         self.command, self.workspace, self.events = command, workspace, Path(events)
         self.side = side
         self.agent_fraction, self.activity_fraction = agent_fraction, activity_fraction
@@ -78,6 +79,18 @@ class Harness:
         self.notice = "pyte terminal | provider coverage unverified"
         self.resize_notice = ""
         self.running = True
+        from .exports import ExportJob
+        self.export_job = ExportJob(export_cache, protected=(workspace, recording))
+        self.export_view = False
+
+    def export_selection(self):
+        if not self.recording:
+            self.export_job.message = 'Export unavailable: recording is disabled'
+            return
+        row = self.activity.selected()
+        if row and self.visualizer_selection == row['id'] and self.visualizer_effect is not None and row['children']:
+            row = row['children'][self.visualizer_effect % len(row['children'])]
+        self.export_job.start(self.recording, self.activity.records, row, self.activity.revision)
 
     def geometry(self, screen):
         rows, columns = screen.getmaxyx()
@@ -179,6 +192,17 @@ class Harness:
             if key == ":" and self.layout_editor:
                 self.layout_editor.begin()
                 return
+            if key == "x":
+                self.export_selection()
+                return
+            if key == "c":
+                self.export_job.cancel()
+                return
+            if key == "t":
+                self.export_view = not self.export_view
+                self.focus = 'visualization'
+                self.scroll = 0
+                return
             if self.layout_editor and self.layout_editor.pending and key in ("m", "+", "-", "[", "]"):
                 self.notice = "Layout disk operation running; wait before changing layout"
                 return
@@ -224,7 +248,7 @@ class Harness:
             elif key == "q":
                 self.running = False
             else:
-                self.notice = "Prefix: : layout menu | i layout status | a/l/v focus | Tab cycle | m mirror | z maximize | q stop"
+                self.notice = "Prefix: : layout | i layout status | x export / c cancel / t export status | a/l/v focus | q stop"
             return
         if kind == "literal":
             self.child.send(token)
@@ -240,6 +264,7 @@ class Harness:
             if self.focus == "activity":
                 self.layout_view = False
                 self.policy_view = False
+                self.export_view = False
                 if self.recording:
                     self.remember_visualizer()
                     if token in (b"j", b"\x1b[B", b"k", b"\x1b[A"):
@@ -270,6 +295,7 @@ class Harness:
                     self.follow = True
                     self.selected = max(0, len(self.actions) - 1)
             elif self.recording and token in (b"s", b"e", b"]", b"["):
+                self.export_view = False
                 self.layout_view = False
                 self.policy_view = False
                 row = self.activity.selected()
@@ -386,6 +412,18 @@ class Harness:
                              curses.A_REVERSE if index == self.selected else 0)
                 if not self.actions:
                     self.add(window, 1, 1, "No hook events; native tool coverage unverified")
+            elif self.export_view:
+                from .exports import ARTIFACT_LIMIT, CACHE_LIMIT, MAX_ARTIFACTS, MAX_AGE
+                lines = ['Export status | Ctrl-] x export / c cancel / t return',
+                         self.export_job.message or 'No export requested.',
+                         'JSON evidence only; browser opening is not implemented.',
+                         'Artifact limit %d MiB; cache %d MiB / %d artifacts / %d days.' % (
+                             ARTIFACT_LIMIT // 1048576, CACHE_LIMIT // 1048576, MAX_ARTIFACTS, MAX_AGE // 86400)]
+                if self.export_job.result:
+                    lines += json.dumps(self.export_job.result, indent=2).splitlines()
+                wrapped = [part for line in lines for part in textwrap.wrap(safe_text(line), max(1, w - 1)) or ['']]
+                for y, line in enumerate(wrapped[self.scroll:self.scroll + h]):
+                    self.add(window, y + 1, 1, line)
             elif self.layout_view and self.layout_config is not None:
                 lines = ["Layout configuration / source diagnostics"]
                 lines += json.dumps(self.layout_config.describe(rows, columns, self.layout_tree,
@@ -431,6 +469,8 @@ class Harness:
             else:
                 self.add(window, 1, 1, "Select an action; run the fake agent to emit events")
         footer = "Ctrl-Q quit | Ctrl-] ? help | " + self.notice
+        if self.export_job.message:
+            footer += ' | ' + self.export_job.message.split(':', 1)[0] + ' (Ctrl-] t)'
         if self.resize_notice:
             footer += " | " + self.resize_notice
         if self.activity_replay and self.activity_replay.error:
@@ -454,7 +494,7 @@ class Harness:
         if self.terminal.unsupported:
             footer += " | unsupported VT: %s" % len(self.terminal.unsupported)
         if self.router.prefix:
-            footer = "Ctrl-Q quit | PREFIX: : layout menu | i layout status | a/l/v focus | m mirror | z maximize | q quit"
+            footer = "Ctrl-Q quit | PREFIX: : layout | x export / c cancel / t export status | a/l/v focus | m mirror | z maximize"
         self.add(screen, rows - 1, 0, footer)
         if self.layout_editor and self.layout_editor.open:
             # Overlay covers cells, not controllers: native dimensions and buffers stay live.
@@ -537,6 +577,7 @@ class Harness:
                 self.watcher.start()
                 self.notice = "pyte | watcher: %s | observations only" % self.watcher.backend
             while self.running:
+                self.export_job.poll()
                 curses.update_lines_cols()
                 actual = os.get_terminal_size(0)
                 if screen.getmaxyx() != (actual.lines, actual.columns):
@@ -574,6 +615,7 @@ class Harness:
                         if kind == "command" or self.layout_tree != before:
                             self.sync_agent_size(self.geometry(screen))
         finally:
+            self.export_job.cancel()
             os.write(1, b"\x1b[?2004l")
             try:
                 stopped = self.child.close()

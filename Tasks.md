@@ -31,9 +31,14 @@ Phase 3 is a completed specification milestone. Phase 4 implements and verifies 
 - [x] **Saved-session review and automated MVP acceptance**: `review` opens saved sessions without an agent/recorder/workspace reads, supports background session selection/refresh and existing layout/Activity/visualizer controls; short read leases coordinate prune/reclamation. All 157 tests pass on macOS/Linux. Both 1,000-file/20-iteration recorder and review/input benchmarks meet measured targets; reports and limits are in [Phase4.md](docs/Phase4.md#saved-session-review-and-mvp-acceptance-slice).
 - [ ] **Human native MVP sign-off**: use [Phase4TestGuide.md](docs/Phase4TestGuide.md#7-human-native-mvp-sign-off) to verify real Claude/Codex rendering, approvals/paste/history, hidden output/layout changes, tool/effect review and saved comparisons on applicable macOS/Linux environments. Record versions, scope and results or explicitly accepted limitations. Automated completion does not close this gate or Phase 2's unreported deployment-policy rows.
 
+## Phase 5: exports and graphical companions
+
+- [x] **Export foundation**: explicit background JSON evidence exports in live/saved review and CLI, frozen selection scope, provenance/checkpoint labels, private bounded content-addressed artifacts, cooperative cancellation/deadlines, atomic publication, cache verification/eviction and cleanup. All 169 tests pass on macOS/Linux, including live input and pending-export shutdown. Scope and acceptance are in [Phase5.md](docs/Phase5.md); manual checks are in [Phase5TestGuide.md](docs/Phase5TestGuide.md).
+- [ ] **gitdiffviz adapter**: verify a pinned build against captured revision pairs, then add an explicitly configured optional exporter with terminal fallback and bounded subprocess behavior.
+- [ ] **Companion opening and acceptance**: explicit opening of completed local artifacts, historical pair/session exports, retained selection, cache/retention coordination, failure/input performance and macOS/Linux manual acceptance.
+
 ## Later phases
 
-- [ ] Phase 5: optional graphical exporter and explicit companion opening.
 - [ ] Phase 6: extended provider backends and multi-session work.
 
 The proposed visualization integration contract is in [VizApi.md](docs/VizApi.md). Writing that contract did not implement a plugin runtime.

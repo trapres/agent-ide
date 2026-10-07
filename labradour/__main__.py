@@ -59,6 +59,7 @@ def main():
     run.add_argument("--demo", action="store_true")
     run.add_argument("--workspace", type=Path, default=Path.cwd())
     run.add_argument("--record", type=Path, help="Persist journal and content checkpoints in this private directory")
+    run.add_argument("--export-cache", type=Path, help="Separate private artifact cache; created only on explicit export")
     run.add_argument("--events", type=Path, help="Hook spool directory; temporary by default")
     run.add_argument("--hooks", choices=["claude", "codex"], help="Add observation-only launch-scoped hooks")
     run.add_argument("--collector", action="store_true", help="Enable Phase 2 authenticated adapter collection (requires --record)")
@@ -98,8 +99,17 @@ def main():
     review = commands.add_parser("review", help="Browse saved sessions without launching an agent")
     review.add_argument("directory", type=Path)
     review.add_argument("--session", help="Saved session ID; defaults to latest")
+    review.add_argument("--export-cache", type=Path, help="Separate private artifact cache; created only on explicit export")
     review.add_argument("--workspace", type=Path, default=Path.cwd(), help="Existing workspace for layout preferences only")
     layout_arguments(review)
+    export = commands.add_parser('export', help='Explicitly export one saved Activity row as JSON evidence')
+    export.add_argument('directory', type=Path)
+    export.add_argument('--session', required=True)
+    export.add_argument('--row', required=True, help='Stable Activity row ID; use --row list to enumerate')
+    export.add_argument('--export-cache', type=Path)
+    artifacts = commands.add_parser('export-cache', help='Inspect or explicitly clear derived export artifacts')
+    artifacts.add_argument('--export-cache', type=Path)
+    artifacts.add_argument('--clear', action='store_true', help='Remove recognized artifacts and unfinished files in this cache')
     actions = commands.add_parser("actions", help="Replay tool observations and ambiguous checkpoint correlations")
     actions.add_argument("directory", type=Path)
     actions.add_argument("--session", required=True)
@@ -117,11 +127,49 @@ def main():
     commands.add_parser("doctor", help="List prerequisites without reading credentials")
     commands.add_parser("adapter-coverage", help="Show native provider categories still requiring verification")
     args = parser.parse_args()
-    if args.mode == "review":
+    if args.mode == 'export-cache':
+        from .exports import ArtifactCache
+        try:
+            cache = ArtifactCache(args.export_cache)
+            if args.clear:
+                with cache.locked():
+                    cache.clean(clear=True)
+            result = cache.inspect()
+        except (OSError, ValueError) as exc:
+            parser.exit(2, 'Labradour: ' + str(exc) + '\n')
+        print(json.dumps(result, indent=2))
+    elif args.mode == 'export':
+        from .review import load_session
+        from .activity import ActivityModel
+        from .exports import ArtifactCache, evidence_export, TIMEOUT, ExportError
+        import time
+        try:
+            _, _, records, projection = load_session(args.directory, args.session)
+            model = ActivityModel()
+            model.update(records, projection)
+            rows = [r for row in model.rows for r in (row, *row['children'])]
+            if args.row == 'list':
+                result = [{'id': r['id'], 'kind': r['kind'], 'tool': r['tool'], 'target': r['target']} for r in rows]
+            else:
+                row = next((r for r in rows if r['id'] == args.row), None)
+                if row is None:
+                    raise ValueError('unknown selected Activity row')
+                protected = [args.directory] + [r['payload']['workspace'] for r in records
+                              if r['kind'] == 'session.started' and isinstance(r['payload'].get('workspace'), str)]
+                cache = ArtifactCache(args.export_cache, protected)
+                deadline = time.monotonic() + TIMEOUT
+                def check():
+                    if time.monotonic() >= deadline:
+                        raise ExportError('export deadline exceeded')
+                result = evidence_export(args.directory, records, row, model.revision, cache, check)
+        except (OSError, ValueError, sqlite3.Error) as exc:
+            parser.exit(2, 'Labradour: ' + str(exc) + '\n')
+        print(json.dumps(result, indent=2))
+    elif args.mode == "review":
         from .review import SavedReview
         try:
             config = layout_from_args(args)
-            harness = SavedReview(args.directory, args.session, config)
+            harness = SavedReview(args.directory, args.session, config, args.export_cache)
             if not sys.stdin.isatty() or not sys.stdout.isatty():
                 parser.error("review requires an interactive terminal; use history/actions for JSON")
             curses.wrapper(harness.run)
@@ -260,7 +308,7 @@ def main():
                               collector=args.collector or bool(args.hooks and args.record),
                               adapter_provider=args.hooks if args.record else None,
                               layout_tree=layout_config.tree, layout_config=layout_config,
-                              initial_focus=layout_config.initial_focus)
+                              initial_focus=layout_config.initial_focus, export_cache=args.export_cache)
             try:
                 curses.wrapper(harness.run)
                 if harness.child and harness.child.status is None:
