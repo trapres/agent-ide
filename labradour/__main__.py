@@ -60,6 +60,7 @@ def main():
     run.add_argument("--workspace", type=Path, default=Path.cwd())
     run.add_argument("--record", type=Path, help="Persist journal and content checkpoints in this private directory")
     run.add_argument("--export-cache", type=Path, help="Separate private artifact cache; created only on explicit export")
+    run.add_argument('--gitdiffviz-config', type=Path, help='Explicit pinned optional adapter JSON; validated only on export')
     run.add_argument("--events", type=Path, help="Hook spool directory; temporary by default")
     run.add_argument("--hooks", choices=["claude", "codex"], help="Add observation-only launch-scoped hooks")
     run.add_argument("--collector", action="store_true", help="Enable Phase 2 authenticated adapter collection (requires --record)")
@@ -100,6 +101,7 @@ def main():
     review.add_argument("directory", type=Path)
     review.add_argument("--session", help="Saved session ID; defaults to latest")
     review.add_argument("--export-cache", type=Path, help="Separate private artifact cache; created only on explicit export")
+    review.add_argument('--gitdiffviz-config', type=Path, help='Explicit pinned optional adapter JSON; validated only on export')
     review.add_argument("--workspace", type=Path, default=Path.cwd(), help="Existing workspace for layout preferences only")
     layout_arguments(review)
     export = commands.add_parser('export', help='Explicitly export one saved Activity row as JSON evidence')
@@ -107,6 +109,8 @@ def main():
     export.add_argument('--session', required=True)
     export.add_argument('--row', required=True, help='Stable Activity row ID; use --row list to enumerate')
     export.add_argument('--export-cache', type=Path)
+    export.add_argument('--exporter', choices=['json', 'gitdiffviz'], default='json')
+    export.add_argument('--gitdiffviz-config', type=Path)
     artifacts = commands.add_parser('export-cache', help='Inspect or explicitly clear derived export artifacts')
     artifacts.add_argument('--export-cache', type=Path)
     artifacts.add_argument('--clear', action='store_true', help='Remove recognized artifacts and unfinished files in this cache')
@@ -161,7 +165,11 @@ def main():
                 def check():
                     if time.monotonic() >= deadline:
                         raise ExportError('export deadline exceeded')
-                result = evidence_export(args.directory, records, row, model.revision, cache, check)
+                if args.exporter == 'gitdiffviz':
+                    from .gitdiffviz import gitdiffviz_export
+                    result = gitdiffviz_export(args.directory, records, row, model.revision, cache, args.gitdiffviz_config, check)
+                else:
+                    result = evidence_export(args.directory, records, row, model.revision, cache, check)
         except (OSError, ValueError, sqlite3.Error) as exc:
             parser.exit(2, 'Labradour: ' + str(exc) + '\n')
         print(json.dumps(result, indent=2))
@@ -169,7 +177,7 @@ def main():
         from .review import SavedReview
         try:
             config = layout_from_args(args)
-            harness = SavedReview(args.directory, args.session, config, args.export_cache)
+            harness = SavedReview(args.directory, args.session, config, args.export_cache, args.gitdiffviz_config)
             if not sys.stdin.isatty() or not sys.stdout.isatty():
                 parser.error("review requires an interactive terminal; use history/actions for JSON")
             curses.wrapper(harness.run)
@@ -308,7 +316,8 @@ def main():
                               collector=args.collector or bool(args.hooks and args.record),
                               adapter_provider=args.hooks if args.record else None,
                               layout_tree=layout_config.tree, layout_config=layout_config,
-                              initial_focus=layout_config.initial_focus, export_cache=args.export_cache)
+                              initial_focus=layout_config.initial_focus, export_cache=args.export_cache,
+                              gitdiffviz_config=args.gitdiffviz_config)
             try:
                 curses.wrapper(harness.run)
                 if harness.child and harness.child.status is None:

@@ -34,7 +34,7 @@ def clip(text, width):
 class Harness:
     def __init__(self, command, workspace, events, side="left", agent_fraction=.5, activity_fraction=.5,
                  watch=False, watch_backend="native", recording=None, policy=None, collector=False, adapter_provider=None,
-                 layout_tree=None, layout_config=None, initial_focus="agent", export_cache=None):
+                 layout_tree=None, layout_config=None, initial_focus="agent", export_cache=None, gitdiffviz_config=None):
         self.command, self.workspace, self.events = command, workspace, Path(events)
         self.side = side
         self.agent_fraction, self.activity_fraction = agent_fraction, activity_fraction
@@ -80,17 +80,17 @@ class Harness:
         self.resize_notice = ""
         self.running = True
         from .exports import ExportJob
-        self.export_job = ExportJob(export_cache, protected=(workspace, recording))
+        self.export_job = ExportJob(export_cache, protected=(workspace, recording), gitdiffviz_config=gitdiffviz_config)
         self.export_view = False
 
-    def export_selection(self):
+    def export_selection(self, exporter='json'):
         if not self.recording:
             self.export_job.message = 'Export unavailable: recording is disabled'
             return
         row = self.activity.selected()
         if row and self.visualizer_selection == row['id'] and self.visualizer_effect is not None and row['children']:
             row = row['children'][self.visualizer_effect % len(row['children'])]
-        self.export_job.start(self.recording, self.activity.records, row, self.activity.revision)
+        self.export_job.start(self.recording, self.activity.records, row, self.activity.revision, exporter)
 
     def geometry(self, screen):
         rows, columns = screen.getmaxyx()
@@ -192,8 +192,8 @@ class Harness:
             if key == ":" and self.layout_editor:
                 self.layout_editor.begin()
                 return
-            if key == "x":
-                self.export_selection()
+            if key in ("x", "g"):
+                self.export_selection('gitdiffviz' if key == 'g' else 'json')
                 return
             if key == "c":
                 self.export_job.cancel()
@@ -416,7 +416,7 @@ class Harness:
                 from .exports import ARTIFACT_LIMIT, CACHE_LIMIT, MAX_ARTIFACTS, MAX_AGE
                 lines = ['Export status | Ctrl-] x export / c cancel / t return',
                          self.export_job.message or 'No export requested.',
-                         'JSON evidence only; browser opening is not implemented.',
+                         'x JSON / g optional gitdiffviz scene; no browser opening.',
                          'Artifact limit %d MiB; cache %d MiB / %d artifacts / %d days.' % (
                              ARTIFACT_LIMIT // 1048576, CACHE_LIMIT // 1048576, MAX_ARTIFACTS, MAX_AGE // 86400)]
                 if self.export_job.result:

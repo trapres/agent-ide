@@ -148,9 +148,9 @@ class ArtifactCache:
                 if destination.stat().st_size <= self.artifact_limit:
                     check()
                     try:
-                        document = json.loads(destination.read_bytes())
-                        if document['schema_version'] == 1 and document['artifact']['media_type'] == 'application/json' and document['artifact']['id'] == key and digest(
-                                {k: document[k] for k in ('provenance', 'evidence')}, check) == key:
+                        cached_document = json.loads(destination.read_bytes())
+                        if cached_document['schema_version'] == 1 and cached_document['artifact']['media_type'] == 'application/json' and cached_document['artifact']['id'] == key and digest(
+                                {k: cached_document[k] for k in ('provenance', 'evidence')}, check) == key:
                             return self.result(destination, True, core['provenance'])
                     except ExportError:
                         raise
@@ -233,16 +233,17 @@ def evidence_export(directory, records, row, revision, cache, check=lambda: None
 
 class ExportJob:
     """One explicit job, one result; selection changes never retarget its scope."""
-    def __init__(self, cache=None, protected=()):
+    def __init__(self, cache=None, protected=(), gitdiffviz_config=None):
         self.cache = cache
         self.protected = protected
+        self.gitdiffviz_config = gitdiffviz_config
         self.pending = False
         self.results = queue.Queue(maxsize=1)
         self.cancelled = threading.Event()
         self.message = ''
         self.result = None
 
-    def start(self, directory, records, row, revision):
+    def start(self, directory, records, row, revision, exporter='json'):
         if self.pending:
             self.message = 'Export already running; wait or cancel with Ctrl-] c'
             return False
@@ -265,7 +266,11 @@ class ExportJob:
         def work():
             try:
                 cache = self.cache if isinstance(self.cache, ArtifactCache) else ArtifactCache(self.cache, self.protected)
-                result = evidence_export(directory, copied, selected, revision, cache, check)
+                if exporter == 'gitdiffviz':
+                    from .gitdiffviz import gitdiffviz_export
+                    result = gitdiffviz_export(directory, copied, selected, revision, cache, self.gitdiffviz_config, check)
+                else:
+                    result = evidence_export(directory, copied, selected, revision, cache, check)
                 self.results.put((result, 'Export ready' + (' (cached)' if result['cached'] else '') + ': ' + result['path']))
             except ExportError as exc:
                 self.results.put((None, 'Export failed: ' + str(exc)))

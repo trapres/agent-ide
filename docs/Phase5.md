@@ -1,8 +1,9 @@
 # Phase 5: exports and graphical companions
 
 The export foundation provides explicit, background JSON evidence exports from
-live or saved review. Graphical formats, gitdiffviz and companion opening are
-the next slices; the core UI continues to use built-in terminal views.
+live or saved review. An optional pinned gitdiffviz adapter now exports a
+selected captured file pair as structured diff/scene JSON. Graphical formats
+and companion opening are the next slice; the core UI retains built-in views.
 
 ## Export foundation
 
@@ -101,7 +102,7 @@ Neither command needs a native agent, the original workspace or gitdiffviz.
 
 ## Acceptance and next slices
 
-All **169 tests pass** on macOS/Python 3.9 (57.776 seconds) and Linux/Python 3.11
+For the export foundation, all **169 tests passed** on macOS/Python 3.9 (57.776 seconds) and Linux/Python 3.11
 (23.060 seconds), including 12 new export tests. Pending-export shutdown is also
 checked in a rendered saved-review PTY: quitting does not wait for a deliberately
 blocked worker and no artifact is published.
@@ -120,10 +121,113 @@ See [Phase5TestGuide.md](Phase5TestGuide.md) for manual verification. Existing
 [Phase 4 human native sign-off](Phase4TestGuide.md#7-human-native-mvp-sign-off)
 retains its open status; synthetic export tests do not certify provider dialogs.
 
-Next: verify a pinned gitdiffviz build and add an optional adapter for captured
-revision pairs. Then add explicit companion opening/session exports and their
-macOS/Linux acceptance checks. External manifest/configuration/JSON-RPC,
-plugin-facing artifact chunk RPC, arbitrary discovery, HTML/PNG/SVG, whole-tree
-grants, graphical opening and a cache inspector inside curses are not implemented
-by this foundation. The proposed [VizApi.md](VizApi.md) remains broader than the
-internal runtime.
+Next: explicit companion opening/session exports and their macOS/Linux acceptance
+checks. External manifest/configuration/JSON-RPC, plugin-facing artifact chunk
+RPC, arbitrary discovery, HTML/PNG/SVG, whole-tree grants, graphical opening and
+a cache inspector inside curses remain unimplemented. [VizApi.md](VizApi.md)
+remains broader than the internal runtime.
+
+## Optional gitdiffviz adapter
+
+The supported source revision is
+`1c5639469fdbadefca5b7dc4a93f260648d90ee1` of
+[gitdiffviz](https://github.com/superstealthlogic/gitdiffviz/tree/1c5639469fdbadefca5b7dc4a93f260648d90ee1).
+The backend reports version 0.1.0. A clean `git archive` of that revision was
+built in a separate temporary directory using the already installed project
+opam switch and `dune build ... bin/main.exe`; the original checkout was unchanged.
+The rebuilt macOS executable's SHA-256 is recorded in
+[gitdiffviz-adapter-acceptance.json](gitdiffviz-adapter-acceptance.json).
+Unlike the earlier Phase 0 probe, this measurement used a fresh pinned-source
+build, rather than an existing unverified build output.
+
+Configuration is explicit; no executable discovery or installation occurs:
+
+```json
+{
+  "schema_version": 1,
+  "binary": "/absolute/path/to/gitdiffviz/_build/default/bin/main.exe",
+  "source_revision": "1c5639469fdbadefca5b7dc4a93f260648d90ee1",
+  "sha256": "REPLACE_WITH_THIS_EXECUTABLES_64_CHARACTER_SHA256"
+}
+```
+
+Pass `--gitdiffviz-config FILE` to `run`, `review` or CLI `export`. Files are
+bounded to 4 KiB, strict JSON with exactly those fields; unsupported revisions,
+versions, duplicate keys, nonfinite numbers, nonregular/symlink direct paths,
+relative executables and SHA mismatches are refused. Configuration is validated
+only on an explicit optional export, so missing/broken tools cannot prevent the
+core UI from starting. Runtime hashing verifies the supplied executable; the
+source revision is a user build declaration, not a cryptographic certificate
+embedded in the binary. Different platform/compiler builds need their own hash.
+On a cache miss, a private executable copy is hashed again before invocation;
+an external edit to the installed executable cannot retarget that job.
+
+Ctrl-] then **g** requests the adapter; **x** remains ordinary JSON evidence.
+Choose a file effect directly or with the existing effect picker. CLI equivalent:
+
+```sh
+python3 -m labradour export RECORDING --session SESSION_ID --row ROW_ID \
+  --exporter gitdiffviz --gitdiffviz-config FILE --export-cache CACHE
+```
+
+Supported scope: complete non-stale regular-file creation/modification/deletion
+effects with a captured before/after interval, including binary/empty/mode-only
+changes. First-baseline content has no prior captured boundary and is refused.
+Omissions, missing objects, stale reads, symlinks and control/surrogate filenames
+remain available through built-in/JSON evidence instead. Rename inference,
+semantic symbols, actor ownership, whole-project structure and timelines are
+not claimed by this selected-file adapter.
+
+Only the granted file bytes/modes cross the adapter boundary. It does not clone
+the recording or pass the workspace/private history to the subprocess. In a
+private disposable Git worktree it builds two deterministic synthetic commits
+from the captured states, materializes the captured regular target for line
+counting, runs `extract-diff`, then `build-scene`. System/global Git settings,
+templates, replacement objects and credential/collector environment are removed
+or disabled. No project command is rerun and no live workspace is consulted.
+The original checkpoint pair stays in provenance; `synthetic_comparison` records
+the separate analysis commits. Temporary repo roots are normalized in exported
+documents. Validated v1 envelopes must match the synthetic pair and selected
+path/ancestor scope. The scene is structural, without semantic extraction.
+
+The artifact contains ordinary captured evidence plus
+`evidence.gitdiffviz.diff` and `evidence.gitdiffviz.scene`. Exporter/version,
+backend source/hash, selected-file scope and structural-only limitations are
+part of the cache key. Verified request/content digests reuse unchanged scenes
+without rerunning the backend, while still revalidating the executable and
+captured evidence. Corrupt envelopes rebuild current payloads; a related cache
+envelope-rebuild bug found during these checks was fixed in the foundation.
+
+All subprocesses run off the input thread in owned process groups with a
+10-second individual deadline and the export's 30-second cooperative aggregate
+deadline. Captured stdout/stderr is capped at 1 MiB total and never copied into
+user diagnostics. Each generated document is capped at 8 MiB. The executable
+is capped at 32 MiB; temporary regular-file usage is monitored at 64 MiB/256
+entries, including its copy, and discarded at completion/failure/cancellation.
+Owned process groups are killed and the direct child is reaped on cleanup. These are application-level
+bounds and sampled temporary-disk checks, not an OS sandbox or hard memory/disk
+quota for an explicitly trusted executable.
+
+**Measured native scope:** macOS pinned backend edit/revert/create/delete/empty/
+binary/mode cases, successful structural scenes, verified cached repeats and
+unchanged recording digests. Linux exercises deterministic executable fixtures
+and real Git/process/cache behavior in the full suite. The acceptance container
+has no OCaml/opam toolchain; native Linux backend execution, browser rendering,
+semantic accuracy, distribution packaging and session timeline acceptance remain
+unmeasured. The next companion gate retains these distinctions.
+
+**Automated validation:** all 178 tests pass on macOS/Python 3.9 (67.617 seconds)
+and Linux/Python 3.11 (24.385 seconds), including nine new adapter tests. Coverage
+includes scoped scene/provenance/cache behavior, disabled/strict configuration,
+binary pin/snapshot tampering, invalid grants and missing evidence, malformed/
+widened/versioned output, bounded logs/temp usage, cancellation with descendants,
+JSON/terminal fallback, corrupt-cache rebuilding, CLI routing and a rendered
+saved-review optional export that returns to the original source view.
+
+The pinned upstream project is
+[MIT licensed](https://github.com/superstealthlogic/gitdiffviz/blob/1c5639469fdbadefca5b7dc4a93f260648d90ee1/LICENSE).
+This repository does not bundle its executable or vendored dependencies. If a
+later distribution includes binaries/source, preserve upstream MIT notices and
+review dependency/vendor licenses separately. The upstream
+[build instructions](https://github.com/superstealthlogic/gitdiffviz/blob/1c5639469fdbadefca5b7dc4a93f260648d90ee1/README.md)
+describe the required opam/C/compiler dependencies.

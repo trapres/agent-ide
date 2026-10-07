@@ -1,0 +1,81 @@
+{
+  "source_revision": "1c5639469fdbadefca5b7dc4a93f260648d90ee1",
+  "binary_sha256": "63dc56c4a0aded779fed8b273146e7f97dac202c758b8fd82da62620d4b2a466",
+  "platform": "macOS-26.7.1-arm64-arm-64bit",
+  "python": "3.9.6",
+  "license": "MIT (upstream; dependencies have their own licenses)",
+  "scope": "real backend selected-file structural extraction and scene JSON; no browser/semantic/native Linux acceptance",
+  "source_recording_unchanged": true,
+  "cases": [
+    {
+      "path": "source.c",
+      "operation": "file.modify",
+      "binary": false,
+      "file_count": 1,
+      "scene_nodes": 2,
+      "artifact_bytes": 4865,
+      "elapsed_ms": 806.421,
+      "cached_repeat": true
+    },
+    {
+      "path": "source.c",
+      "operation": "file.modify",
+      "binary": false,
+      "file_count": 1,
+      "scene_nodes": 2,
+      "artifact_bytes": 4865,
+      "elapsed_ms": 736.365,
+      "cached_repeat": true
+    },
+    {
+      "path": "created.c",
+      "operation": "file.create",
+      "binary": false,
+      "file_count": 1,
+      "scene_nodes": 2,
+      "artifact_bytes": 4568,
+      "elapsed_ms": 643.562,
+      "cached_repeat": true
+    },
+    {
+      "path": "created.c",
+      "operation": "file.delete",
+      "binary": false,
+      "file_count": 1,
+      "scene_nodes": 2,
+      "artifact_bytes": 4616,
+      "elapsed_ms": 661.945,
+      "cached_repeat": true
+    },
+    {
+      "path": "empty",
+      "operation": "file.create",
+      "binary": false,
+      "file_count": 1,
+      "scene_nodes": 2,
+      "artifact_bytes": 4175,
+      "elapsed_ms": 689.072,
+      "cached_repeat": true
+    },
+    {
+      "path": "binary",
+      "operation": "file.modify",
+      "binary": true,
+      "file_count": 1,
+      "scene_nodes": 2,
+      "artifact_bytes": 4234,
+      "elapsed_ms": 718.934,
+      "cached_repeat": true
+    },
+    {
+      "path": "source.c",
+      "operation": "file.modify",
+      "binary": false,
+      "file_count": 1,
+      "scene_nodes": 2,
+      "artifact_bytes": 4261,
+      "elapsed_ms": 735.381,
+      "cached_repeat": true
+    }
+  ]
+}

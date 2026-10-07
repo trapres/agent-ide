@@ -291,7 +291,7 @@ python3 -m labradour export-cache --export-cache CACHE
 python3 -m labradour export-cache --export-cache CACHE --clear
 ```
 
-Graphical formats, gitdiffviz, browser opening and external plugin RPC are not available yet. [Phase5TestGuide.md](docs/Phase5TestGuide.md) explains expected results, cache behavior and failure checks.
+The optional gitdiffviz adapter exports structural diff/scene JSON for a selected captured regular-file pair: configure `run`/`review --gitdiffviz-config FILE`, then **Ctrl-] g**. CLI export accepts `--exporter gitdiffviz --gitdiffviz-config FILE`. Configuration explicitly pins an absolute executable, SHA-256 and supported source revision. Missing/broken tools fail locally; `x` and built-in terminal views still work. No whole workspace/history is passed to the backend. [Phase5TestGuide.md](docs/Phase5TestGuide.md#5-configure-the-optional-gitdiffviz-adapter) covers build/configuration and measured limits. Graphical formats, browser opening and external plugin RPC remain unavailable.
 
 ## Inspecting correlation before the review UI
 

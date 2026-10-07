@@ -34,7 +34,7 @@ Phase 3 is a completed specification milestone. Phase 4 implements and verifies 
 ## Phase 5: exports and graphical companions
 
 - [x] **Export foundation**: explicit background JSON evidence exports in live/saved review and CLI, frozen selection scope, provenance/checkpoint labels, private bounded content-addressed artifacts, cooperative cancellation/deadlines, atomic publication, cache verification/eviction and cleanup. All 169 tests pass on macOS/Linux, including live input and pending-export shutdown. Scope and acceptance are in [Phase5.md](docs/Phase5.md); manual checks are in [Phase5TestGuide.md](docs/Phase5TestGuide.md).
-- [ ] **gitdiffviz adapter**: verify a pinned build against captured revision pairs, then add an explicitly configured optional exporter with terminal fallback and bounded subprocess behavior.
+- [x] **gitdiffviz adapter implementation and scoped acceptance**: rebuilt clean pinned source, explicit strict config/source/SHA pin, isolated selected-file synthetic pairs, diff/scene JSON, verified lazy cache reuse, bounded subprocess/log/temp cleanup and terminal/JSON fallback. All 178 tests pass on macOS/Linux. Real macOS edit/revert/create/delete/empty/binary/mode cases are measured; native Linux execution remains unmeasured (container lacks OCaml/opam), with executable-fixture coverage on both platforms. See [Phase5.md](docs/Phase5.md#optional-gitdiffviz-adapter) and [Phase5TestGuide.md](docs/Phase5TestGuide.md#5-configure-the-optional-gitdiffviz-adapter).
 - [ ] **Companion opening and acceptance**: explicit opening of completed local artifacts, historical pair/session exports, retained selection, cache/retention coordination, failure/input performance and macOS/Linux manual acceptance.
 
 ## Later phases

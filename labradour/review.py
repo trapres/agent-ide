@@ -33,14 +33,14 @@ def load_session(directory, session=None):
 class SavedReview(Harness):
     saved_review = True
 
-    def __init__(self, directory, session=None, layout_config=None, export_cache=None):
+    def __init__(self, directory, session=None, layout_config=None, export_cache=None, gitdiffviz_config=None):
         self.directory = Path(directory).resolve()
         initial = load_session(self.directory, session)
         workspace = layout_config.workspace if layout_config else Path.cwd()
         super().__init__([], workspace, self.directory, recording=self.directory,
                          layout_config=layout_config,
                          layout_tree=layout_config.tree if layout_config else None,
-                         initial_focus='activity', export_cache=export_cache)
+                         initial_focus='activity', export_cache=export_cache, gitdiffviz_config=gitdiffviz_config)
         self.policy_view = False
         self.terminal = Terminal(1, 1)
         self.pending = False
