@@ -7,6 +7,8 @@ import queue
 import re
 import subprocess
 import threading
+import time
+from .leases import evidence_lease
 
 LIMIT = 256 * 1024
 MAX_LINES = 4000
@@ -20,8 +22,11 @@ class EvidenceReader:
         self.env.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull, GIT_NO_REPLACE_OBJECTS='1')
 
     def git(self, *args):
+        remaining = getattr(self, 'deadline', time.monotonic() + 2) - time.monotonic()
+        if remaining <= 0:
+            raise ValueError('evidence read deadline exceeded')
         result = subprocess.run(['git', '--git-dir='+str(self.repo), *args], env=self.env,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=2)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=min(2, remaining))
         if result.returncode:
             raise ValueError('saved Git object unavailable (possibly pruned)')
         return result.stdout
@@ -75,7 +80,13 @@ class EvidenceReader:
             raise ValueError('effect checkpoint pair does not match captured evidence')
         earlier=[s for s in self.snapshots if s['sequence']<snapshot['sequence'] and
                  s['payload'].get('commit')==effect.get('before_commit')]
-        return self.describe(earlier[-1] if earlier else None,effect['path']),self.describe(snapshot,effect['path'])
+        try:
+            with evidence_lease(self.repo.parent):
+                self.deadline = time.monotonic() + 5
+                return self.describe(earlier[-1] if earlier else None,effect['path']),self.describe(snapshot,effect['path'])
+        except (ValueError, OSError) as exc:
+            unavailable = {'state':'unavailable', 'reason':str(exc)}
+            return dict(unavailable), dict(unavailable)
 
 
 def text_content(item):

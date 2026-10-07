@@ -243,11 +243,19 @@ When the agent exits on its own, the review panes stay open until you quit. Save
 
 ```sh
 python3 -m labradour history /path/to/labradour-recording
+python3 -m labradour review /path/to/labradour-recording
+python3 -m labradour review /path/to/labradour-recording --session SESSION_ID --layout agent-top
 python3 -m labradour history /path/to/labradour-recording --session SESSION_ID
 python3 -m labradour diff /path/to/labradour-recording BEFORE_COMMIT AFTER_COMMIT
 ```
 
 Copy a session ID from the first command, then full `commit` IDs from `snapshot.completed` records. Compare adjacent checkpoints to see intermediate edits, including edits later reverted. Comparing only the baseline and final checkpoint can produce an empty diff even when work occurred between them.
+
+`review` starts focused on Activity and opens the latest saved session by default. It launches no agent, recorder, watcher or hooks and never reads the original workspace. Agent becomes a session selector: Ctrl-] then `a`, `j`/`k` to highlight, Enter to open, `r` to refresh the highlighted session. `>` marks the highlighted session; `*` marks the loaded session. Session loading runs in the background; the footer reports loading/errors. Refreshing the same session preserves filters, selection and view position; changing sessions resets them. Activity and Visualization use the same controls as live recordings. Terminal output was not recorded and cannot be replayed.
+
+Saved review does not repair interrupted recordings or change a persisted `running` status. Unclosed calls are shown with incomplete outcomes in this historical view. Refresh is explicit, including when reviewing an active recording. Layout options and the editor also work; `--workspace` selects an **existing directory for layout preferences only**, defaulting to your current directory. The original workspace may have been moved or deleted. An explicit layout save can write preferences there; ordinary review does not write recording files.
+
+Historical comparisons hold a short read lease across captured before/after bytes. Applied retention and destructive startup maintenance use the matching exclusive lease. A busy prune fails promptly with a retry message; retry when preparation finishes. An open review window does not pin sessions indefinitely. If its session is pruned between reads, cached facts may remain visible, but new reads/refresh report unavailable or pruned evidence. No current-workspace content substitutes for missing captured bytes. See [Phase4TestGuide.md](docs/Phase4TestGuide.md) for MVP acceptance checks.
 
 Metadata is reconciled every two seconds. Unchanged files reuse captured bytes after stat checks; dirty paths, startup, overflow, shutdown, and every fifteenth capture attempt trigger fresh reads. Unchanged periodic reconciliations reuse the existing checkpoint without adding detail cards.
 

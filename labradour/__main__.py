@@ -45,6 +45,8 @@ def layout_arguments(parser):
 
 def layout_from_args(args):
     from .layout_config import load_layout
+    if args.layout and any(value is not None for value in (args.side, args.agent_width, args.activity_height)):
+        raise ValueError('--layout cannot be combined with --side, --agent-width or --activity-height')
     return load_layout(args.workspace, explicit=args.layout_config, name=args.layout,
                        ignore=args.ignore_layout_config, side=args.side,
                        agent_width=args.agent_width, activity_height=args.activity_height)
@@ -93,6 +95,11 @@ def main():
     history = commands.add_parser("history", help="List saved sessions or print a session journal")
     history.add_argument("directory", type=Path)
     history.add_argument("--session")
+    review = commands.add_parser("review", help="Browse saved sessions without launching an agent")
+    review.add_argument("directory", type=Path)
+    review.add_argument("--session", help="Saved session ID; defaults to latest")
+    review.add_argument("--workspace", type=Path, default=Path.cwd(), help="Existing workspace for layout preferences only")
+    layout_arguments(review)
     actions = commands.add_parser("actions", help="Replay tool observations and ambiguous checkpoint correlations")
     actions.add_argument("directory", type=Path)
     actions.add_argument("--session", required=True)
@@ -110,7 +117,17 @@ def main():
     commands.add_parser("doctor", help="List prerequisites without reading credentials")
     commands.add_parser("adapter-coverage", help="Show native provider categories still requiring verification")
     args = parser.parse_args()
-    if args.mode == "layout":
+    if args.mode == "review":
+        from .review import SavedReview
+        try:
+            config = layout_from_args(args)
+            harness = SavedReview(args.directory, args.session, config)
+            if not sys.stdin.isatty() or not sys.stdout.isatty():
+                parser.error("review requires an interactive terminal; use history/actions for JSON")
+            curses.wrapper(harness.run)
+        except (OSError, ValueError, sqlite3.Error) as exc:
+            parser.exit(2, "Labradour: " + str(exc) + "\n")
+    elif args.mode == "layout":
         try:
             config = layout_from_args(args)
             if args.layout_mode == "status":
@@ -160,8 +177,13 @@ def main():
         for revision in (args.before, args.after):
             if len(revision) != 40 or any(c not in "0123456789abcdef" for c in revision):
                 parser.error("diff requires full checkpoint commit IDs from the journal")
-        result = subprocess.run(["git", "--git-dir=" + str(args.directory.resolve() / "history.git"),
-                                 "diff", "--no-ext-diff", "--no-textconv", args.before, args.after, "--"], env=env)
+        from .leases import evidence_lease
+        try:
+            with evidence_lease(args.directory):
+                result = subprocess.run(["git", "--git-dir=" + str(args.directory.resolve() / "history.git"),
+                                         "diff", "--no-ext-diff", "--no-textconv", args.before, args.after, "--"], env=env, timeout=5)
+        except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+            parser.exit(2, "Labradour: " + str(exc) + "\n")
         if result.returncode:
             raise SystemExit(result.returncode)
     elif args.mode == "snapshot-fixture":

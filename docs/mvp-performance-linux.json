@@ -1,0 +1,99 @@
+{
+  "platform": "Linux-7.0.12-linuxkit-aarch64-with-glibc2.41",
+  "python": "3.11.17",
+  "files": 1000,
+  "iterations": 20,
+  "file_content_bytes": 2048,
+  "startup_ms": 41.716,
+  "baseline_ms": 1254.386,
+  "unchanged_scan": {
+    "samples": 20,
+    "median_ms": 17.681,
+    "p95_ms": 18.458,
+    "max_ms": 20.286
+  },
+  "small_file_capture": {
+    "samples": 20,
+    "median_ms": 48.561,
+    "p95_ms": 53.894,
+    "max_ms": 67.655
+  },
+  "journal_64_events": {
+    "samples": 20,
+    "median_ms": 5.36,
+    "p95_ms": 6.27,
+    "max_ms": 6.969
+  },
+  "store_bytes_initial": 209840,
+  "store_bytes_final": 1052493,
+  "scope": "disposable workspace; filesystem rows and synthetic native CLI; provider-hook coverage is separate",
+  "live": {
+    "snapshot_visible": {
+      "samples": 20,
+      "median_ms": 100.006,
+      "p95_ms": 123.741,
+      "max_ms": 142.401
+    },
+    "filesystem_row_visible": {
+      "samples": 20,
+      "median_ms": 51.716,
+      "p95_ms": 72.789,
+      "max_ms": 73.82
+    },
+    "max_queue_depth_sampled": 1,
+    "watcher_dropped": 0,
+    "durable_events_consumed": 65,
+    "metrics": {
+      "scan_files": 1021,
+      "read_files": 1,
+      "read_bytes": 7,
+      "cache_hits": 1000,
+      "captures": 22,
+      "watcher_queue": 0,
+      "watcher_dropped": 0,
+      "scan_ms": 17.826,
+      "capture_prepare_ms": 41.693,
+      "capture_ms": 47.293
+    },
+    "fidelity": "waited for each checkpoint; intra-scan transient writes are not guaranteed"
+  },
+  "ui_recording_disabled": {
+    "samples": 20,
+    "median_ms": 36.528,
+    "p95_ms": 38.519,
+    "max_ms": 39.72
+  },
+  "ui_recording_with_background_writes": {
+    "samples": 20,
+    "median_ms": 37.315,
+    "p95_ms": 42.533,
+    "max_ms": 42.661
+  },
+  "ui_recording_with_review_and_writes": {
+    "samples": 20,
+    "median_ms": 37.864,
+    "p95_ms": 43.073,
+    "max_ms": 43.342
+  },
+  "saved_review": {
+    "startup_ms": 8.346,
+    "journal_records": 1325,
+    "rows": 2302,
+    "source_preparation": {
+      "samples": 20,
+      "median_ms": 4.428,
+      "p95_ms": 5.341,
+      "max_ms": 6.008
+    }
+  },
+  "ui_p95_overhead_ms": 4.014,
+  "review_ui_p95_overhead_ms": 4.554,
+  "targets": {
+    "small_file_capture_p95_under_500ms": true,
+    "live_capture_p95_under_500ms": true,
+    "filesystem_row_p95_under_250ms": true,
+    "ui_p95_overhead_under_50ms": true,
+    "review_ui_p95_overhead_under_50ms": true,
+    "no_watcher_drops": true
+  }
+}

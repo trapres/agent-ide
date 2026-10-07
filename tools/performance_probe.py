@@ -26,7 +26,7 @@ def summary(values):
             "max_ms": round(max(values) * 1000, 3)}
 
 
-def ui_latency(workspace, store, iterations, recording):
+def ui_latency(workspace, store, iterations, recording, review=False):
     code = "import sys; print('AGENT_READY', flush=True);\nfor line in sys.stdin: print('ACK-' + line.strip(), flush=True)"
     command = [sys.executable, "-m", "labradour", "run", "--workspace", str(workspace)]
     if recording:
@@ -64,6 +64,9 @@ def ui_latency(workspace, store, iterations, recording):
         for index in range(iterations):
             token = "request-%05d" % index
             started = time.perf_counter()
+            if review:
+                # Prepare changing summary/evidence views while native input continues.
+                child.send(b'\x1dv' + (b'e' if index % 2 else b's') + b'\x1da')
             child.send((token + "\n").encode())
             wait_text("ACK-" + token)
             samples.append(time.perf_counter() - started)
@@ -175,11 +178,28 @@ def benchmark(files=1000, iterations=20, direct_only=False):
         report["live"] = live_lag(workspace, root / "live-recording", iterations)
         report["ui_recording_disabled"] = ui_latency(workspace, root / "unused", iterations, False)
         report["ui_recording_with_background_writes"] = ui_latency(workspace, root / "ui-recording", iterations, True)
+        report["ui_recording_with_review_and_writes"] = ui_latency(workspace, root / "review-recording", iterations, True, review=True)
+        from labradour.review import SavedReview
+        from labradour.visualizers import BuiltinRegistry
+        started = time.perf_counter()
+        saved = SavedReview(root / 'recording')
+        report['saved_review'] = {'startup_ms': round((time.perf_counter()-started)*1000, 3),
+                                 'journal_records': len(saved.activity.records), 'rows': len(saved.activity.rows)}
+        effects = [r for r in saved.activity.rows if r['kind'] == 'effect' and r['payload']['operation'] == 'file.modify']
+        prepared = []
+        for row in effects[-iterations:]:
+            started = time.perf_counter()
+            BuiltinRegistry().prepare(root / 'recording', saved.activity.records, row)
+            prepared.append(time.perf_counter()-started)
+        if prepared:
+            report['saved_review']['source_preparation'] = summary(prepared)
         report["ui_p95_overhead_ms"] = round(report["ui_recording_with_background_writes"]["p95_ms"] - report["ui_recording_disabled"]["p95_ms"], 3)
+        report['review_ui_p95_overhead_ms'] = round(report['ui_recording_with_review_and_writes']['p95_ms'] - report['ui_recording_disabled']['p95_ms'], 3)
         report["targets"] = {"small_file_capture_p95_under_500ms": report["small_file_capture"]["p95_ms"] < 500,
                              "live_capture_p95_under_500ms": report["live"]["snapshot_visible"]["p95_ms"] < 500,
                              "filesystem_row_p95_under_250ms": report["live"]["filesystem_row_visible"] is not None and report["live"]["filesystem_row_visible"]["p95_ms"] < 250,
                              "ui_p95_overhead_under_50ms": report["ui_p95_overhead_ms"] < 50,
+                             "review_ui_p95_overhead_under_50ms": report['review_ui_p95_overhead_ms'] < 50,
                              "no_watcher_drops": report["live"]["watcher_dropped"] == 0}
         report["scope"] = "disposable workspace; filesystem rows and synthetic native CLI; provider-hook coverage is separate"
         return report

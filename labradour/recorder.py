@@ -89,7 +89,12 @@ class Recorder:
             self._recover()
             if (self.directory / "history.git").exists():
                 from .retention import reclaim_loose_objects
-                reclaim_loose_objects(self.storage)
+                from .leases import EvidenceBusy
+                try:
+                    reclaim_loose_objects(self.storage)
+                except EvidenceBusy:
+                    # Reclamation is optional; recording need not wait for a viewer.
+                    pass
                 self.storage.refresh_usage()
             if self.suspended:
                 raise BudgetExceeded("recovery requires a larger storage budget")

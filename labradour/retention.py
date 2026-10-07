@@ -11,6 +11,7 @@ import uuid
 
 from .snapshots import ScratchHistory
 from .storage import BudgetStore, file_bytes, read_health
+from .leases import evidence_lease, maintenance_lease
 
 
 @contextmanager
@@ -65,6 +66,7 @@ def journal_roots(directory, excluded_sessions=()):
     return sorted(roots)
 
 
+@maintenance_lease
 def reclaim_loose_objects(storage):
     """Packed objects stay intact; sharing between sessions is never broken."""
     history = ScratchHistory(storage.directory, session="maintenance", resume=True)
@@ -92,6 +94,12 @@ def resume_prune(storage):
     operation = read_health(storage.directory)
     if operation.get("operation") != "prune":
         return None
+    return _resume_prune(storage)
+
+
+@maintenance_lease
+def _resume_prune(storage):
+    operation = read_health(storage.directory)
     targets = operation.get("sessions")
     if not isinstance(targets, list) or len(targets) > 32 or any(not isinstance(s, str) or len(s) != 32 or
             any(c not in "0123456789abcdef" for c in s) for s in targets):
@@ -144,7 +152,7 @@ def resume_prune(storage):
 def apply_retention(directory, keep_sessions=10):
     if type(keep_sessions) is not int or keep_sessions < 1:
         raise ValueError("keep_sessions must be at least 1")
-    with writer_lock(directory) as directory:
+    with writer_lock(directory) as directory, evidence_lease(directory, exclusive=True):
         health = read_health(directory)
         # Cleanup must also work at an exhausted quota. It never increases the
         # allowed retained budget just to compact existing data.

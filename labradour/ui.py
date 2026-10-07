@@ -325,8 +325,8 @@ class Harness:
         screen.erase()
         rows, columns = screen.getmaxyx()
         self.add(screen, 0, 0, "Labradour | %s | focus: %s | %s" % (
-            Path(self.workspace).name, self.focus,
-            "LIVE" if self.follow else "historical selection"), curses.A_BOLD)
+            Path(self.recording if getattr(self, 'saved_review', False) else self.workspace).name, self.focus,
+            "SAVED REVIEW" if getattr(self, 'saved_review', False) else "LIVE" if self.follow else "historical selection"), curses.A_BOLD)
         if self.layout_tree is not None:
             mode = "maximized" if self.maximized else compact_reason(self.layout_tree, rows, columns)
             if mode:
@@ -339,6 +339,10 @@ class Harness:
                      curses.A_BOLD)
             h, w = rect.content_size
             if name == "agent":
+                if getattr(self, 'saved_review', False):
+                    for y, line in enumerate(self.session_lines()[:h]):
+                        self.add(window, y + 1, 1, line)
+                    continue
                 for y, row in enumerate(self.terminal.grid[:h]):
                     for x, cell in enumerate(row[:w]):
                         if cell.text:
@@ -463,7 +467,7 @@ class Harness:
                 curses.curs_set(0)
             except curses.error:
                 pass
-        elif "agent" in geometry and self.focus == "agent" and self.terminal.cursor_visible:
+        elif "agent" in geometry and self.focus == "agent" and self.terminal.cursor_visible and not getattr(self, 'saved_review', False):
             rect = geometry["agent"]
             y = rect.y + 1 + min(self.terminal.y, rect.content_size[0] - 1)
             x = rect.x + 1 + min(self.terminal.x, rect.content_size[1] - 1)

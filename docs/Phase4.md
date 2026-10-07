@@ -126,10 +126,91 @@ Command/tool cards show captured arguments, lifecycle, identity/coverage quality
 
 Preparation runs off the curses/input thread with one active job, coalescing selection/revision changes. A mismatched result is discarded; loading replaces old content until the current result arrives. Resize/scroll reuses prepared analysis instead of rereading evidence. Historical reads are bounded to 256 KiB per blob; display is bounded to 4000 lines/256 KiB of text, command observations to 64, diffs to 64 KiB/2000 lines per side. Limit notices describe truncated views rather than complete evidence. Git subprocess reads have two-second deadlines; pure-Python analysis runs on the worker without a hard process-level timeout.
 
-This is an internal foundation, not the full proposed VizApi SDK: external scoped handles, JSON-RPC/plugin configuration, cancellation/process limits, export artifacts and read leases are not implemented. Live recordings already exclude prune through their writer lock. Saved-session review and prune/read coordination are the next slice; missing objects during an independent read are surfaced as unavailable, with no live-file fallback.
+This is an internal foundation, not the full proposed VizApi SDK: external scoped handles, JSON-RPC/plugin configuration, cancellation/process limits and export artifacts are not implemented. Live recordings exclude prune through their writer lock. The following slice adds saved review and internal read leases; missing objects are surfaced as unavailable, with no live-file fallback.
 
 **Validation:** all 150 tests pass on macOS/Python 3.9 (44.803 seconds) and Linux/Python 3.11 (19.335 seconds). Seven visualizer tests cover historical edit/create/delete after live-file mutation, empty/binary/invalid UTF-8/symlink/large files, omission/missing baseline/stale content, invalid grants, unusual byte paths/missing objects, command empty/missing/opaque output, stale background results and resize reuse. A rendered PTY recording demonstrates a saved source diff while native input stays usable. Final UI controls are rechecked with targeted tests.
 
 Manual check: record a disposable edit/revert/create/delete sequence, filter Activity by `path:NAME tool:file.modify` to select a checkpoint effect rather than a raw watcher observation, then press `d`. Confirm the saved intermediate diff, creation/deletion content, metadata/missing-data labels and external/unknown attribution. Switch `e`/`s`, scroll in both directions, change layouts, and rapidly change selection while the agent continues. For a multi-effect call, use `]`/`[` and confirm Activity's parent stays selected. Compare a known recorded command failure/opaque outcome with its raw journal card; no renderer should infer success or rerun it. Human native visual checks still apply.
 
 **Next slice:** saved-session review and MVP acceptance, including retention/read coordination and performance/native gates.
+
+## Saved-session review and MVP acceptance slice
+
+`python3 -m labradour review DIRECTORY [--session ID]` opens the latest or chosen
+saved session using the existing layout, Activity projection and historical
+built-in visualizers. It creates no PTY, agent, watcher, recorder or collector,
+does not read the original workspace, and does not write recording files.
+The original workspace may be gone. The Agent pane becomes a session selector
+with highlighted/loaded markers, persisted status and recorded workspace facts;
+terminal output was not recorded and cannot be replayed. Activity starts focused.
+
+In Agent, j/k and Enter switch sessions; r explicitly reloads the highlighted
+session, including an active recording's newer facts. Switching loads in one
+background job with a bounded result queue and coalesces subsequent requests;
+obsolete results cannot replace the requested session. Refresh of the same
+session preserves filter/selection/view state; switching sessions resets them.
+Loading/errors appear in the footer. A failed refresh retains the prior cached
+facts with an error notice. A persisted running status is not repaired by review;
+its historical projection closes unfinished calls as incomplete. Layout options
+and the editor work as in live mode; `--workspace` is the existing layout
+preferences directory (current directory by default), not historical evidence.
+Explicit layout saves are the only review interaction that writes preferences.
+
+Before/after file reads acquire a shared advisory directory lock; this needs no
+lease file or write access. Git reads have a two-second individual timeout and
+five-second aggregate comparison deadline. The lease is released before Python
+analysis and display; cached views never indefinitely pin sessions. Applied
+retention, resumed prune and loose-object reclamation take the matching exclusive
+lock and reject busy evidence promptly. Nested maintenance uses a thread-local
+reentrant scope. Optional startup object reclamation skips busy readers rather
+than preventing a new recording; pending destructive prune must finish safely
+or fail with a retry notice. Read-only CLI diff also holds a short lease.
+Locks coordinate cooperating Labradour code, not unrelated deletion tools.
+
+An idle viewer can outlive a pruned session. Cached analysis may remain, while
+new reads report unavailable/pruned bytes and refresh rejects the removed
+session. Missing bytes never become empty content or evidence of deletion and
+never fall back to live workspace files. Prepared jobs still reject stale
+selection/revision results. External plugin lease tokens, hard Python worker
+cancellation, arbitrary plugin transport and graphical export remain later work.
+
+**Validation:** all 157 tests pass on macOS/Python 3.9 (50.251 seconds) and
+Linux/Python 3.11 (20.638 seconds). Seven new tests cover missing original
+workspace/read-only recording digests, no runtime services, background session
+switching/pruned refresh, cross-process prune refusal/release, reader/recorder
+coexistence, persisted running status without repair, same-session state
+preservation, leases across actual comparison pairs, pruned-byte fallback and
+rendered saved-session filtering/diff/navigation/compact resize/clean exit.
+The existing suite covers live adapter Activity, historical views, layout editor
+input isolation, process cleanup, storage limits and crash recovery.
+
+The extended disposable performance probe uses 1,000 files, 20 iterations,
+background writes every 20 ms and synthetic native input while alternating
+summary/evidence preparation. Saved replay has 1,325 records/2,302 rows and
+20 historical source comparisons. Full suites were also running during these
+measurements; results are local samples, not performance guarantees.
+
+| Measurement | macOS | Linux | Target |
+| --- | --- | --- | --- |
+| Small changed-file capture p95 | 222.677 ms | 53.894 ms | <500 ms |
+| Live checkpoint visibility p95 | 312.661 ms | 123.741 ms | <500 ms |
+| Filesystem row visibility p95 | 131.237 ms | 72.789 ms | <250 ms |
+| Input p95 overhead with recording/writes | 5.080 ms | 4.014 ms | <50 ms |
+| Input p95 overhead with recording/review/writes | 12.968 ms | 4.554 ms | <50 ms |
+| Saved replay initial load | 9.172 ms | 8.346 ms | Reported; no prior target |
+| Historical source preparation p95 | 142.541 ms | 5.341 ms | Reported; off input thread |
+| Watcher drops | 0 | 0 | 0 |
+
+Initial baseline capture took about 1.2 seconds on both hosts and precedes agent
+release; incremental visibility targets do not cover cold startup. The probe
+does not certify arbitrary session sizes, provider dialogs, managed policy or
+human color/input fidelity. Raw measured reports:
+[macOS](mvp-performance-macos.json), [Linux](mvp-performance-linux.json).
+
+**MVP status:** implementation and automated acceptance for Phase 4 are complete
+in this measured scope. Human native sign-off remains open in
+[Phase4TestGuide.md](Phase4TestGuide.md#7-human-native-mvp-sign-off). That guide
+provides disposable walkthroughs, expected views, missing-data/retention checks,
+performance reproduction and explicit unimplemented features. Applicable human
+rows must pass or receive explicit scoped acceptance before claiming full MVP
+native acceptance. Earlier Phase 2 deployment-policy gaps retain their status.

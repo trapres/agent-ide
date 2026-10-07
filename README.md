@@ -65,6 +65,7 @@ Save a session's journal and intermediate file contents:
 ```sh
 python3 -m labradour run --workspace /path/to/project --record /path/to/private-recording -- codex
 python3 -m labradour history /path/to/private-recording
+python3 -m labradour review /path/to/private-recording
 python3 -m labradour history /path/to/private-recording --session SESSION_ID
 python3 -m labradour diff /path/to/private-recording BEFORE_COMMIT AFTER_COMMIT
 ```
@@ -72,6 +73,8 @@ python3 -m labradour diff /path/to/private-recording BEFORE_COMMIT AFTER_COMMIT
 `--record` includes filesystem watching and waits for baseline capture before starting the agent. Reuse the recording directory for additional sessions in the same workspace. It preserves intermediate changes in private Git history without modifying the project's index or refs. Full checkpoint commit IDs are available in `snapshot.completed` journal records. The live Visualization pane provides historical built-in views and JSON evidence (`e`); use `diff` for larger saved source comparisons.
 
 Capture excludes Git administration, recorder data, common credential directories, `.env` files, and dependency/build directories. Large files are metadata-only; recording enforces a hard retained-file-byte budget. Temporary staging requires separate disk space. See [Phase 1 implementation and limits](docs/Phase1.md) before recording a workspace, and [UIGuide.md](UIGuide.md) for navigation.
+
+`review DIRECTORY [--session ID]` opens saved Activity and visualization panes without launching an agent, even if the original workspace is gone. Agent becomes a session selector; terminal output cannot be replayed. See the [MVP testing guide](docs/Phase4TestGuide.md) for automated results and remaining human native checks.
 
 Preview or customize capture policy:
 
@@ -93,7 +96,7 @@ python3 -m labradour prune /path/to/private-recording --keep-sessions 5 --apply
 
 Retention removes whole older sessions, compacts their journal rows, deletes their private session refs/policy files, and reclaims unreferenced loose Git objects. Shared/surviving evidence and packed objects remain protected. The writer lock prevents cleanup during recording. Interrupted pruning resumes on the next launch or applied prune; owned abandoned staging directories are cleaned automatically. Disk-full failures stop recording while the agent continues, with a best-effort reserved health-slot diagnostic. See [UIGuide.md](UIGuide.md) for recovery and retention limits.
 
-Default geometry is half-width Agent plus stacked quarter-screen review panes. Terminals smaller than 100×28 use the focused pane full screen. Session layout adjustments are not yet persisted. [Phase 3's completed specification](docs/Phase3.md) defines arbitrary split trees, named presets, editing, persistence and focus/resize acceptance; Phase 4 implements those features.
+Default geometry is half-width Agent plus stacked quarter-screen review panes. Terminals smaller than 100×28 use the focused pane full screen. Layout adjustments can be saved explicitly through the editor or CLI. [Phase 3's completed specification](docs/Phase3.md) defines the layout contract implemented in Phase 4.
 
 [Phase 4's layout system](docs/Phase4.md) provides four presets through `--layout`: `default`, `agent-right`, `agent-top`, and `visualization-top`, plus custom names from layered v1 JSON files. Try `python3 -m labradour run --demo --layout agent-top`. Inspect with `python3 -m labradour layout status`, save explicitly with `layout save NAME --scope user|workspace`, or load a file with `run --layout-config FILE`. Ctrl-] then `i` displays source/geometry diagnostics. Ctrl-] then `:` opens the layout editor with preview/apply/cancel and current-session save/reload/reset. Recorded Activity now groups tool calls, expands candidate effects, filters rows and preserves stable selection. Visualization now provides historical creation/diff/deletion, command/tool and generic evidence cards.
 
