@@ -4,7 +4,7 @@ Status: **proposed v1 contract, not an implemented plugin SDK or runtime**. Date
 
 This API lets a visualization tool present recorded Labradour evidence in the Visualization pane or produce a graphical companion. It separates presentation from provider hooks, recording, and pane layout. A plugin can implement a source diff, file structure view, image preview, command summary, or tool-specific explanation without accessing recorder internals.
 
-The current UI displays JSON detail cards, and `history`/`diff` expose saved recordings through the CLI. The registry, evidence service, protocol, configuration, and methods below are proposed implementation work. They refine the logical contract in [AgentUI.md, section 6](../AgentUI.md). The initial implementation should use built-ins through the same interface; explicitly installed subprocess adapters follow. Automatic third-party discovery is deferred.
+Phase 4 now has an internal built-in registry, effect-granted historical readers, background terminal views and JSON evidence cards; `history`/`diff` also expose saved recordings. These internal interfaces are not the complete SDK below: scoped external handles, JSON-RPC, plugin configuration, cancellation/timeouts, artifacts and retention leases remain proposed implementation work. They refine the logical contract in [AgentUI.md, section 6](../AgentUI.md). The initial implementation should use built-ins through the same interface; explicitly installed subprocess adapters follow. Automatic third-party discovery is deferred.
 
 ## 1. Responsibilities and boundaries
 

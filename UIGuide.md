@@ -117,7 +117,7 @@ The **Agent** pane accepts normal typing, slash commands, paste, approvals, and 
 
 The **Activity** pane shows a grouped action/effect projection when recording is enabled: one row per scoped tool call, lifecycle updates in place, expandable candidate effects, external/unknown changes and lifecycle/health observations. Unknown identities and outcomes stay explicit. Without recording, it retains the raw hook/event display. Select an older row without stopping the agent; Ctrl-] then `r` switches recorded Activity to the underlying journal view.
 
-The **Visualization** pane currently shows formatted JSON for the selected action, effect or event. Action details include the original recorded observations, arguments/results where captured, boundaries, candidate effects, notes and limitations. Effect details include their historical checkpoint and attribution quality. Source diffs and other specialized graphical views are planned; they are not yet embedded in this pane.
+The **Visualization** pane renders captured creation content, source diffs, deletion content, command/tool cards, or generic evidence for the selected recorded row. Views use saved checkpoints and recorded results, never current workspace files. Evidence/attribution labels remain visible. Optional graphical companions are later work.
 
 ## Focus and navigation
 
@@ -148,7 +148,25 @@ Press `/` to edit a filter. Space-separated terms are combined; use `actor:worke
 
 Press `d` to focus Visualization on the selected details. Use its normal scroll keys. Ctrl-] then `r` toggles the underlying journal view, retaining the selection identity for return. This is useful for inspecting raw lifecycle, snapshots, adapter boundaries and health observations.
 
-Child effects are **candidate intervals**, not proof that a call wrote the file. Their attribution stays external/unknown. A shared checkpoint effect can appear under several candidate calls, with the same canonical effect ID; each remains one tool invocation. Unassigned effects appear independently. A completed hook with opaque results displays `result:unknown`; missing outcomes remain requested/running/awaiting approval while live, or incomplete after process exit. Details preserve missing boundaries and conflicting outcomes. Historical source diffs remain the next slice.
+Child effects are **candidate intervals**, not proof that a call wrote the file. Their attribution stays external/unknown. A shared checkpoint effect can appear under several candidate calls, with the same canonical effect ID; each remains one tool invocation. Unassigned effects appear independently. A completed hook with opaque results displays `result:unknown`; missing outcomes remain requested/running/awaiting approval while live, or incomplete after process exit. Details preserve missing boundaries and conflicting outcomes. Select a checkpoint effect to see its historical source view; a raw watcher observation remains a generic event card.
+
+## View historical content
+
+Select a recorded effect in Activity, then focus Visualization with Ctrl-] then `v` or `d` from Activity. Creation shows captured new content; deletion shows last captured content; modification shows a unified diff. First captured baseline content is labelled **First captured file** when no earlier absence is established. Command/tool cards show captured inputs, lifecycle, results and evidence gaps; they never execute the recorded command.
+
+| Visualization keys | Action |
+| --- | --- |
+| `s` | Built-in summary/content view |
+| `e` | JSON evidence and recorded observations |
+| `]` / `[` | Next/previous candidate effect within a selected multi-effect call |
+| Up/Down or `j`/`k` | Vertical scroll |
+| Left/Right | Horizontal scroll in 20-cell steps |
+
+Activity keeps its parent selection when you use the in-pane effect picker. Summary/evidence choice and scroll positions are remembered for up to 128 selections. Layout/resize reuses prepared analysis. Rapid selection changes show loading while obsolete work finishes; an obsolete result cannot replace the new selection.
+
+State labels distinguish captured empty content, absent paths, metadata-only/omitted content, unavailable checkpoints, retained stale bytes, binary/non-UTF-8 content, and symlink targets. Missing output is explicitly unavailable rather than empty. Opaque native completion results remain unknown. Partial/shared intervals never establish exclusive file ownership. Symlink destinations are never followed.
+
+Views are bounded: 256 KiB per file read, 4000 display lines, and text diffs limited to 64 KiB/2000 lines per side. Limit notices describe an incomplete display, not a complete comparison. For larger evidence, use the saved history/diff CLI. Capture policy exclusions cannot be bypassed by choosing a view. Graphical export and external visualization plugins remain future work.
 
 ## Layout and terminal history
 
@@ -235,11 +253,11 @@ Metadata is reconciled every two seconds. Unchanged files reuse captured bytes a
 
 Recording captures observed states rather than every write. Short-lived files and rapid changes between scans may be missed. `partial` captures, overflow events, and failed checkpoints identify gaps; an interrupted session is preserved and a later launch reconciles the current workspace into a new session.
 
-## Visualizations planned for the review MVP
+## Built-in review visualizations
 
-Phase 4 now provides the recorded action/effect list, filters and stable selection. The next slice routes selected effects to built-in views:
+Phase 4 now provides the recorded action/effect list, filters, stable selection and historical built-in views:
 
-| Selected effect | Planned view |
+| Selected effect | Built-in view |
 | --- | --- |
 | File creation | Captured new content |
 | File modification | Historical source diff |
@@ -248,8 +266,8 @@ Phase 4 now provides the recorded action/effect list, filters and stable selecti
 | Read/search or unknown tool | Tool details and evidence card |
 | Binary change or recording gap | Metadata and available evidence |
 
-Multi-effect tool calls will offer a file/effect picker inside the review panes. Phase 5 adds optional gitdiffviz graphical exports through an explicit open action. Reviewing an event will use recorded evidence and will not rerun its command. Exact controls for these features will be added here when implemented.
+Multi-effect tool calls offer expanded Activity effects and an in-pane effect picker. Phase 5 adds optional gitdiffviz graphical exports through an explicit open action. Reviewing an event will use recorded evidence and will not rerun its command. External plugin transport and graphical companions are not implemented.
 
 ## Inspecting correlation before the review UI
 
-Run `python3 -m labradour history RECORDING` to find a session, then `python3 -m labradour actions RECORDING --session SESSION_ID`. This prints replayed tool states, explicit actor relationships, output references, checkpoint effects, candidate calls, and evidence gaps. Recorded Activity now displays this projection, with JSON evidence details; Ctrl-] then `r` retains raw journal inspection. The CLI is still useful for complete replay/export. A candidate call never establishes exclusive file ownership. See [Phase2TestGuide.md](docs/Phase2TestGuide.md) for scenarios and interpretation.
+Run `python3 -m labradour history RECORDING` to find a session, then `python3 -m labradour actions RECORDING --session SESSION_ID`. This prints replayed tool states, explicit actor relationships, output references, checkpoint effects, candidate calls, and evidence gaps. Recorded Activity now displays this projection, with built-in historical views and JSON evidence details; Ctrl-] then `r` retains raw journal inspection. The CLI is still useful for complete replay/export. A candidate call never establishes exclusive file ownership. See [Phase2TestGuide.md](docs/Phase2TestGuide.md) for scenarios and interpretation.

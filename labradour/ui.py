@@ -55,6 +55,12 @@ class Harness:
         self.activity_replay = None
         self.activity_filter_edit = None
         self.activity_detail_cache = None
+        self.visualizer = None
+        self.visualizer_mode = 'auto'
+        self.visualizer_effect = None
+        self.visualizer_selection = None
+        self.visualizer_column = 0
+        self.visualizer_states = {}
         self.scroll = 0
         self.router = InputRouter()
         self.child = None
@@ -93,6 +99,13 @@ class Harness:
             self.resize_notice = ""
             if (self.terminal.rows, self.terminal.columns) != (h, w):
                 self.terminal.resize(h, w)
+
+    def remember_visualizer(self):
+        if self.visualizer_selection is not None:
+            self.visualizer_states[self.visualizer_selection] = (self.scroll, self.visualizer_column,
+                                                                self.visualizer_mode, self.visualizer_effect)
+            if len(self.visualizer_states) > 128:
+                self.visualizer_states.pop(next(iter(self.visualizer_states)))
 
     def collect(self):
         fresh = []
@@ -228,6 +241,7 @@ class Harness:
                 self.layout_view = False
                 self.policy_view = False
                 if self.recording:
+                    self.remember_visualizer()
                     if token in (b"j", b"\x1b[B", b"k", b"\x1b[A"):
                         self.activity.move(1 if token in (b"j", b"\x1b[B") else -1)
                         self.scroll = 0
@@ -255,10 +269,30 @@ class Harness:
                 elif token == b"f":
                     self.follow = True
                     self.selected = max(0, len(self.actions) - 1)
+            elif self.recording and token in (b"s", b"e", b"]", b"["):
+                self.layout_view = False
+                self.policy_view = False
+                row = self.activity.selected()
+                if token in (b"s", b"e"):
+                    self.visualizer_mode = 'auto' if token == b's' else 'evidence'
+                    self.visualizer_effect = None
+                elif row and row['children']:
+                    count = len(row['children'])
+                    current = self.visualizer_effect if self.visualizer_effect is not None else (-1 if token == b']' else 0)
+                    self.visualizer_effect = (current + (1 if token == b']' else -1)) % count
+                    self.visualizer_mode = 'auto'
+                self.scroll = 0
+                self.visualizer_column = 0
+                self.remember_visualizer()
+            elif self.recording and token in (b"\x1b[C", b"\x1b[D"):
+                self.visualizer_column = max(0, self.visualizer_column + (20 if token == b'\x1b[C' else -20))
+                self.remember_visualizer()
             elif token in (b"j", b"\x1b[B"):
                 self.scroll += 1
+                self.remember_visualizer()
             elif token in (b"k", b"\x1b[A"):
                 self.scroll = max(0, self.scroll - 1)
+                self.remember_visualizer()
 
     def add(self, window, y, x, text, attribute=0):
         h, w = window.getmaxyx()
@@ -363,15 +397,25 @@ class Harness:
                     self.add(window, y + 1, 1, line)
             elif self.recording and self.activity.selected() is not None:
                 row = self.activity.selected()
-                revision = (self.activity.revision, row['id'])
-                if self.activity_detail_cache is None or self.activity_detail_cache[0] != revision:
-                    lines = ["View: " + row['kind'] + " details", "Identity: " + row['id'],
-                             "Candidate intervals never establish file ownership."]
-                    lines += json.dumps(self.activity.details(), ensure_ascii=False, indent=2).splitlines()
-                    self.activity_detail_cache = (revision, lines)
-                lines = self.activity_detail_cache[1]
+                if self.visualizer_selection != row['id']:
+                    self.visualizer_selection = row['id']
+                    self.scroll, self.visualizer_column, self.visualizer_mode, self.visualizer_effect = self.visualizer_states.get(row['id'], (0, 0, 'auto', None))
+                if self.visualizer_effect is not None and row['children']:
+                    row = row['children'][self.visualizer_effect % len(row['children'])]
+                if self.visualizer is None:
+                    from .visualizers import VisualizerJob
+                    self.visualizer = VisualizerJob(self.recording)
+                key = (self.activity.revision, row['id'], self.visualizer_mode)
+                title, prepared = self.visualizer.tick(key, self.activity.records, row, self.visualizer_mode)
+                lines = [title+' | s summary / e evidence / [ ] effects'] + prepared
                 for y, line in enumerate(lines[self.scroll:self.scroll + h]):
-                    self.add(window, y + 1, 1, line)
+                    clean = safe_text(line)
+                    offset = 0
+                    used = 0
+                    while offset < len(clean) and used < self.visualizer_column:
+                        used += cell_width(clean[offset])
+                        offset += 1
+                    self.add(window, y + 1, 1, clean[offset:])
             elif self.actions:
                 p = self.actions[self.selected]["payload"]
                 lines = ["View: " + p.get("operation", "tool/event card"),
