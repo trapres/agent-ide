@@ -185,6 +185,15 @@ class ExportTests(unittest.TestCase):
             self.view.export_job.poll()
             time.sleep(.01)
         self.assertIsNotNone(self.view.export_job.result)
+        with patch('labradour.companions.launch'):
+            self.view.handle('command', b'o')
+            self.assertEqual(self.view.focus, 'agent')
+            self.assertEqual(self.view.activity.selected_id, self.row['id'])
+            deadline = time.monotonic() + 3
+            while self.view.export_job.pending and time.monotonic() < deadline:
+                self.view.export_job.poll()
+                time.sleep(.01)
+        self.assertEqual(self.view.export_job.result['open_status'], 'requested')
         self.view.handle('command', b't')
         self.assertTrue(self.view.export_view)
         self.assertEqual(self.view.focus, 'visualization')
@@ -206,12 +215,14 @@ class ExportTests(unittest.TestCase):
 import curses, sys, time
 from pathlib import Path
 import labradour.exports as exports
+import labradour.companions as companions
 from labradour.ui import Harness
 original = exports.evidence_export
 def slow(*args, **kwargs):
  time.sleep(.5)
  return original(*args, **kwargs)
 exports.evidence_export = slow
+companions.launch = lambda *args: time.sleep(.5)
 agent = "import sys; from pathlib import Path; print('READY', flush=True);\\nfor line in sys.stdin: Path('source.py').write_text(line); print('ACK-'+line.strip(), flush=True)"
 curses.wrapper(Harness([sys.executable, '-u', '-c', agent], Path(sys.argv[1]), Path(sys.argv[2]), recording=Path(sys.argv[3]), watch_backend='polling', export_cache=Path(sys.argv[4])).run)
 '''
@@ -243,6 +254,12 @@ curses.wrapper(Harness([sys.executable, '-u', '-c', agent], Path(sys.argv[1]), P
             wait_frame('Export ready')
             artifact = json.loads(next(self.cache.path.glob('*.json')).read_text())
             self.assertEqual(base64.b64decode(artifact['evidence']['after']['content_base64']), b'captured-before-export\n')
+            child.send(b'\x1do\x1daopening-native-input\r')
+            wait_frame('ACK-opening-native-input', timeout=.4)
+            wait_frame('Graphical opening requested')
+            companion = next(self.cache.path.glob('*.html')).read_text()
+            self.assertIn('captured-before-export', companion)
+            self.assertNotIn('opening-native-input', companion)
             child.send(b'\x11')
             deadline = time.monotonic() + 4
             while child.poll() is None and time.monotonic() < deadline:

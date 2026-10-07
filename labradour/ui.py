@@ -198,6 +198,9 @@ class Harness:
             if key == "c":
                 self.export_job.cancel()
                 return
+            if key == "o":
+                self.export_job.open_graphical()
+                return
             if key == "t":
                 self.export_view = not self.export_view
                 self.focus = 'visualization'
@@ -248,7 +251,7 @@ class Harness:
             elif key == "q":
                 self.running = False
             else:
-                self.notice = "Prefix: : layout | i layout status | x export / c cancel / t export status | a/l/v focus | q stop"
+                self.notice = "Prefix: : layout | i layout status | x export / g gitdiffviz / o open / c cancel / t status | a/l/v focus | q stop"
             return
         if kind == "literal":
             self.child.send(token)
@@ -416,7 +419,7 @@ class Harness:
                 from .exports import ARTIFACT_LIMIT, CACHE_LIMIT, MAX_ARTIFACTS, MAX_AGE
                 lines = ['Export status | Ctrl-] x export / c cancel / t return',
                          self.export_job.message or 'No export requested.',
-                         'x JSON / g optional gitdiffviz scene; no browser opening.',
+                         'x JSON / g gitdiffviz / o open completed local companion.',
                          'Artifact limit %d MiB; cache %d MiB / %d artifacts / %d days.' % (
                              ARTIFACT_LIMIT // 1048576, CACHE_LIMIT // 1048576, MAX_ARTIFACTS, MAX_AGE // 86400)]
                 if self.export_job.result:

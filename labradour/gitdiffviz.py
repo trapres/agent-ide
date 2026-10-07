@@ -184,6 +184,8 @@ def reuse(cache, request_key, check):
             entries.pop(0)[0].unlink()
         for path, info in entries:
             check()
+            if path.suffix != '.json':
+                continue
             if info.st_size > cache.artifact_limit:
                 continue
             try:

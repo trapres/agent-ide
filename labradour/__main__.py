@@ -114,6 +114,10 @@ def main():
     artifacts = commands.add_parser('export-cache', help='Inspect or explicitly clear derived export artifacts')
     artifacts.add_argument('--export-cache', type=Path)
     artifacts.add_argument('--clear', action='store_true', help='Remove recognized artifacts and unfinished files in this cache')
+    opening = commands.add_parser('open-export', help='Explicitly open a validated completed export in a local graphical companion')
+    opening.add_argument('artifact_id', help='Completed JSON artifact ID from export result')
+    opening.add_argument('--sha256', required=True, help='Full completed-file SHA-256 from export result')
+    opening.add_argument('--export-cache', type=Path)
     actions = commands.add_parser("actions", help="Replay tool observations and ambiguous checkpoint correlations")
     actions.add_argument("directory", type=Path)
     actions.add_argument("--session", required=True)
@@ -131,7 +135,23 @@ def main():
     commands.add_parser("doctor", help="List prerequisites without reading credentials")
     commands.add_parser("adapter-coverage", help="Show native provider categories still requiring verification")
     args = parser.parse_args()
-    if args.mode == 'export-cache':
+    if args.mode == 'open-export':
+        from .exports import ArtifactCache, TIMEOUT, ExportError
+        from .companions import open_graphical, OpenFailure
+        import time
+        deadline = time.monotonic() + TIMEOUT
+        def check():
+            if time.monotonic() >= deadline:
+                raise ExportError('graphical opening deadline exceeded')
+        try:
+            result = open_graphical(ArtifactCache(args.export_cache), {'id':args.artifact_id, 'sha256':args.sha256}, check)
+        except OpenFailure as exc:
+            print(json.dumps(exc.result, indent=2))
+            parser.exit(2, 'Labradour: ' + str(exc) + '\n')
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            parser.exit(2, 'Labradour: graphical artifact unavailable: ' + str(exc) + '\n')
+        print(json.dumps(result, indent=2))
+    elif args.mode == 'export-cache':
         from .exports import ArtifactCache
         try:
             cache = ArtifactCache(args.export_cache)

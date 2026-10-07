@@ -27,7 +27,7 @@ TIMEOUT = 30
 CHUNK = 64 * 1024
 EXPORTER = 'labradour-evidence-json'
 VERSION = '1'
-ARTIFACT_NAME = re.compile(r'[0-9a-f]{64}\.json')
+ARTIFACT_NAME = re.compile(r'[0-9a-f]{64}\.(json|html)')
 PENDING_NAME = re.compile(r'\.pending-[0-9a-f]{32}\.tmp')
 
 
@@ -193,10 +193,50 @@ class ArtifactCache:
         with path.open('rb') as stream:
             for chunk in iter(lambda: stream.read(CHUNK), b''):
                 result.update(chunk)
-        return {'id': path.stem, 'path': str(path), 'media_type': 'application/json',
+        return {'id': path.stem, 'path': str(path), 'media_type': 'text/html' if path.suffix == '.html' else 'application/json',
                 'bytes': path.stat().st_size, 'sha256': result.hexdigest(), 'cached': cached,
                 'selection_id': provenance.get('selection_id'), 'session_id': provenance.get('session_id'),
                 'evidence_revision': provenance.get('evidence_revision')}
+
+    def publish_html(self, content, provenance, check=lambda: None):
+        check()
+        if len(content) > self.artifact_limit:
+            raise ExportError('graphical artifact exceeds byte limit')
+        key = hashlib.sha256(content).hexdigest()
+        destination = self.path / (key + '.html')
+        with self.locked():
+            self.clean()
+            entries = self.entries()
+            while entries and (len(entries) > self.count or sum(i.st_size for _, i in entries) > self.budget):
+                entries.pop(0)[0].unlink()
+            if destination.exists() and destination.stat().st_size == len(content) and destination.read_bytes() == content:
+                return self.result(destination, True, provenance)
+            entries = [(p, i) for p, i in entries if p != destination]
+            used = sum(i.st_size for _, i in entries)
+            while entries and (len(entries) >= self.count or used + len(content) > self.budget):
+                path, info = entries.pop(0)
+                path.unlink()
+                used -= info.st_size
+            if used + len(content) > self.budget:
+                raise ExportError('graphical cache byte budget exhausted')
+            # Remove a corrupt recognized entry before reserving the replacement.
+            if destination.exists():
+                destination.unlink()
+            pending = self.path / ('.pending-' + uuid.uuid4().hex + '.tmp')
+            try:
+                fd = os.open(str(pending), os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+                with os.fdopen(fd, 'wb') as output:
+                    for offset in range(0, len(content), CHUNK):
+                        check()
+                        output.write(content[offset:offset + CHUNK])
+                    output.flush()
+                    os.fsync(output.fileno())
+                check()
+                os.replace(str(pending), str(destination))
+                return self.result(destination, False, provenance)
+            finally:
+                if pending.exists():
+                    pending.unlink()
 
 
 def evidence_export(directory, records, row, revision, cache, check=lambda: None):
@@ -285,6 +325,34 @@ class ExportJob:
             self.pending = False
         except queue.Empty:
             pass
+
+    def open_graphical(self):
+        if self.pending or self.result is None:
+            self.message = 'Open unavailable: wait for a completed export'
+            return False
+        source = dict(self.result)
+        self.pending = True
+        self.cancelled = threading.Event()
+        cancelled = self.cancelled
+        deadline = time.monotonic() + TIMEOUT
+        self.message = 'Preparing graphical companion: ' + source['id']
+        def check():
+            if cancelled.is_set():
+                raise ExportError('graphical opening cancelled (an already dispatched window may remain)')
+            if time.monotonic() >= deadline:
+                raise ExportError('graphical opening deadline exceeded')
+        def work():
+            try:
+                from .companions import open_graphical
+                cache = self.cache if isinstance(self.cache, ArtifactCache) else ArtifactCache(self.cache, self.protected)
+                result = open_graphical(cache, source, check)
+                self.results.put((result, 'Graphical opening requested: ' + result['companion']['path']))
+            except ExportError as exc:
+                self.results.put((getattr(exc, 'result', source), 'Open failed: ' + str(exc)))
+            except Exception:
+                self.results.put((source, 'Open failed: completed artifact unavailable'))
+        threading.Thread(target=work, name='labradour-open', daemon=True).start()
+        return True
 
     def cancel(self):
         self.cancelled.set()

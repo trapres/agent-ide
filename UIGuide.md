@@ -117,7 +117,7 @@ The **Agent** pane accepts normal typing, slash commands, paste, approvals, and 
 
 The **Activity** pane shows a grouped action/effect projection when recording is enabled: one row per scoped tool call, lifecycle updates in place, expandable candidate effects, external/unknown changes and lifecycle/health observations. Unknown identities and outcomes stay explicit. Without recording, it retains the raw hook/event display. Select an older row without stopping the agent; Ctrl-] then `r` switches recorded Activity to the underlying journal view.
 
-The **Visualization** pane renders captured creation content, source diffs, deletion content, command/tool cards, or generic evidence for the selected recorded row. Views use saved checkpoints and recorded results, never current workspace files. Evidence/attribution labels remain visible. Optional graphical companions are later work.
+The **Visualization** pane renders captured creation content, source diffs, deletion content, command/tool cards, or generic evidence for the selected recorded row. Views use saved checkpoints and recorded results, never current workspace files. Evidence/attribution labels remain visible. Explicit local companions are available after exporting; see the controls below.
 
 ## Focus and navigation
 
@@ -166,7 +166,7 @@ Activity keeps its parent selection when you use the in-pane effect picker. Summ
 
 State labels distinguish captured empty content, absent paths, metadata-only/omitted content, unavailable checkpoints, retained stale bytes, binary/non-UTF-8 content, and symlink targets. Missing output is explicitly unavailable rather than empty. Opaque native completion results remain unknown. Partial/shared intervals never establish exclusive file ownership. Symlink destinations are never followed.
 
-Views are bounded: 256 KiB per file read, 4000 display lines, and text diffs limited to 64 KiB/2000 lines per side. Limit notices describe an incomplete display, not a complete comparison. For larger evidence, use the saved history/diff CLI. Capture policy exclusions cannot be bypassed by choosing a view. Graphical export and external visualization plugins remain future work.
+Views are bounded: 256 KiB per file read, 4000 display lines, and text diffs limited to 64 KiB/2000 lines per side. Limit notices describe an incomplete display, not a complete comparison. For larger evidence, use the saved history/diff CLI. Capture policy exclusions cannot be bypassed by choosing a view. Local static companions display exported evidence; external plugin transport remains future work.
 
 ## Layout and terminal history
 
@@ -274,7 +274,7 @@ Phase 4 now provides the recorded action/effect list, filters, stable selection 
 | Read/search or unknown tool | Tool details and evidence card |
 | Binary change or recording gap | Metadata and available evidence |
 
-Multi-effect tool calls offer expanded Activity effects and an in-pane effect picker. Phase 5 adds optional gitdiffviz graphical exports through an explicit open action. Reviewing an event will use recorded evidence and will not rerun its command. External plugin transport and graphical companions are not implemented.
+Multi-effect tool calls offer expanded Activity effects and an in-pane effect picker. Phase 5 adds optional gitdiffviz structural exports and a separate companion open action. Reviewing an event uses recorded evidence without rerunning its command. External plugin transport remains proposed.
 
 ## Export selected recorded evidence
 
@@ -291,7 +291,9 @@ python3 -m labradour export-cache --export-cache CACHE
 python3 -m labradour export-cache --export-cache CACHE --clear
 ```
 
-The optional gitdiffviz adapter exports structural diff/scene JSON for a selected captured regular-file pair: configure `run`/`review --gitdiffviz-config FILE`, then **Ctrl-] g**. CLI export accepts `--exporter gitdiffviz --gitdiffviz-config FILE`. Configuration explicitly pins an absolute executable, SHA-256 and supported source revision. Missing/broken tools fail locally; `x` and built-in terminal views still work. No whole workspace/history is passed to the backend. [Phase5TestGuide.md](docs/Phase5TestGuide.md#5-configure-the-optional-gitdiffviz-adapter) covers build/configuration and measured limits. Graphical formats, browser opening and external plugin RPC remain unavailable.
+The optional gitdiffviz adapter exports structural diff/scene JSON for a selected captured regular-file pair: configure `run`/`review --gitdiffviz-config FILE`, then **Ctrl-] g**. CLI export accepts `--exporter gitdiffviz --gitdiffviz-config FILE`. Configuration explicitly pins an absolute executable, SHA-256 and supported source revision. Missing/broken tools fail locally; `x` and built-in terminal views still work. No whole workspace/history is passed to the backend. [Phase5TestGuide.md](docs/Phase5TestGuide.md#5-configure-the-optional-gitdiffviz-adapter) covers build/configuration and measured limits. External plugin RPC remains proposed.
+
+After either JSON export completes, **Ctrl-] o** prepares and opens a host-rendered static HTML companion. It opens the last completed export, even if Activity selection has changed. Ctrl-] t shows source metadata plus the `companion` path/hash and `open_status`. The page shows captured states, evidence/provenance and optional structure cards, with no scripts, network resources or local server. Opening stays in the background. Opener failures retain the page for inspection/retry. Browser windows belong to you and stay open after quitting Labradour. HTML and JSON share cache limits; eviction/clear can remove either, so re-export a missing source. CLI opening requires its completed JSON ID and exact SHA-256: `python3 -m labradour open-export ARTIFACT_ID --sha256 SHA256 --export-cache CACHE`.
 
 ## Inspecting correlation before the review UI
 

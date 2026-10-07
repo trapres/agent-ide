@@ -1,8 +1,8 @@
 # Phase 5 manual testing guide
 
 Currently available: explicit JSON evidence export, artifact-cache lifecycle and
-an optional pinned gitdiffviz diff/scene JSON adapter. Graphical formats and
-companion opening are still upcoming.
+an optional pinned gitdiffviz diff/scene JSON adapter, and explicit opening of
+host-rendered static HTML companions. Session-wide exports remain upcoming.
 
 ## 1. Export selected historical evidence
 
@@ -94,8 +94,8 @@ file for cleanup on the next explicit publish/clear.
 
 The internal worker uses cooperative cancellation and a 30-second deadline; it
 cannot forcibly interrupt arbitrary Python/file I/O. External subprocess isolation,
-plugin manifest/RPC, graphical formats, automatic discovery,
-graphical opening and session-wide export are not implemented. Existing human
+plugin manifest/RPC, plugin-supplied graphical formats, automatic discovery,
+and session-wide export are not implemented. Existing human
 native acceptance remains in [Phase4TestGuide.md](Phase4TestGuide.md).
 
 ## 5. Configure the optional gitdiffviz adapter
@@ -131,7 +131,7 @@ not every compiler/platform build. No binary is bundled with Labradour.
 Start `review RECORDING --gitdiffviz-config FILE --export-cache CACHE`, select a
 known edit effect, then Ctrl-] **g** and Ctrl-] **t**. Expect Export ready and a JSON
 artifact with `evidence.gitdiffviz.diff` and `evidence.gitdiffviz.scene`. No graphical
-window opens yet. The terminal source diff remains available through `s`.
+window opens from exporting; use the separate open action below. The terminal source diff remains available through `s`.
 
 Check that only the selected path appears in the backend diff. Original checkpoint
 IDs remain in provenance; `synthetic_comparison` differs because analysis uses a
@@ -166,7 +166,7 @@ Limits: binary 32 MiB, generated document 8 MiB each, captured logs 1 MiB total,
 sampled temporary usage 64 MiB/256 entries, subprocess 10 seconds, export 30 seconds
 with cooperative checks. The configured executable is trusted code, not OS-sandboxed.
 Semantic symbols, cross-file rename inference, whole-workspace/session grants,
-timeline exports, browser rendering and packaging remain subsequent checks.
+timeline exports, the full upstream interactive viewer and packaging remain subsequent work.
 
 Native macOS backend cases are measured. Linux subprocess/adapter behavior is
 tested with executable fixtures; the current container lacks OCaml/opam, so native
@@ -174,3 +174,65 @@ Linux backend execution is **pending**. On your Linux machine, build the same pi
 run this probe, then record its version/hash, platform and pass/fail results before
 claiming native Linux acceptance. This does not replace the later companion visual
 gate or the existing Phase 4 human native checks.
+
+## 6. Open a completed graphical companion
+
+Use the disposable recording/cache above, on macOS or a Linux desktop with a
+working default browser and xdg-open. No gitdiffviz installation is needed for
+ordinary captured evidence.
+
+1. Before exporting, press Ctrl-] o. Expect “Open unavailable”; no window or cache
+   artifact should appear. Select, scroll and resize views: none should open a browser.
+2. Export with Ctrl-] x (or g for configured gitdiffviz), wait for “Export ready”,
+   then press Ctrl-] o. Expect a separate local browser page and “Graphical opening
+   requested”. Ctrl-] t shows source metadata plus companion path/hash/open_status.
+   Focus and Activity selection remain unchanged inside Labradour; the OS may
+   foreground the browser. Exporting alone still opens nothing.
+3. Check the page title/path, session, selection, original captured interval and
+   source SHA against the completed JSON. Before/after should match recorded
+   evidence, even after editing/moving today's workspace. Unknown ownership stays
+   explicit. Gitdiffviz adds structure cards for the selected file; ordinary JSON
+   still gives captured states and provenance. Command/action exports show payload
+   and observations without inventing file content or rerunning the command.
+4. Select a different row before opening the completed result. The page must still
+   describe the earlier export. Request a new export explicitly to open new evidence.
+   Return to the terminal source view with s/e after focusing Visualization.
+5. Repeat opening: expect the same HTML ID and cached companion, without rerunning
+   gitdiffviz. Test UTF-8 text, creation/deletion, an empty file, binary and
+   metadata-only captures. Absence and missing/stale bytes must not become empty
+   files. Wide content scrolls horizontally; narrow browser windows stack sides.
+   Large displays show truncation labels. Structure is a static node grid, not a
+   zoomable upstream scene or semantic symbol graph.
+6. In live recording, continue typing in Agent and change layouts during opening.
+   Input/recording must continue; a second request while pending is refused.
+   Ctrl-] c cancels preparation cooperatively, and Ctrl-Q remains responsive.
+   A browser already opened remains user-owned after cancel/quit.
+7. Inspect the HTML locally: no scripts, external assets, links or local server
+   should exist. Captured markup should display as text. JSON and HTML are private
+   files in the same separate bounded cache. Clear with export-cache --clear:
+   both disappear, the recording stays intact, and an already loaded browser page
+   may remain visible. Opening the removed result fails locally; export again.
+8. On a headless Linux host or one without xdg-open, opening should fail locally.
+   Ctrl-] t retains the generated companion path; inspect it or retry after the
+   desktop is available. The ordinary terminal/JSON views remain usable. “Requested”
+   means the desktop helper accepted the request, not proof a window rendered.
+
+CLI opening uses the ID and exact SHA from a completed export, not its arbitrary
+path or a URL:
+
+```sh
+python3 -m labradour open-export ARTIFACT_ID --sha256 SOURCE_SHA256 --export-cache CACHE
+python3 -m unittest tests.test_companions tests.test_exports -q
+```
+
+Success returns source metadata plus companion metadata and open_status.
+Desktop dispatch failure exits 2 but prints the ready companion result.
+For a disposable cache, change one byte in the source JSON and try its previous
+ID/SHA: validation must reject it before browser dispatch. Re-export to restore it.
+
+Automated tests pass on macOS/Linux. Real macOS desktop dispatch and Chrome page
+contents were checked with a disposable fixture; Linux desktop visual acceptance
+and real native Linux gitdiffviz remain pending. Record OS/browser, tested cases,
+input behavior and pass/fail results when checking those manually. Session-wide
+exports, active plugin HTML, arbitrary URLs/server commands, PNG export and the
+full upstream interactive viewer are not implemented.

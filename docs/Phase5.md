@@ -2,8 +2,8 @@
 
 The export foundation provides explicit, background JSON evidence exports from
 live or saved review. An optional pinned gitdiffviz adapter now exports a
-selected captured file pair as structured diff/scene JSON. Graphical formats
-and companion opening are the next slice; the core UI retains built-in views.
+selected captured file pair as structured diff/scene JSON. Explicit static HTML
+companions are available; the core UI retains built-in views.
 
 ## Export foundation
 
@@ -80,8 +80,8 @@ removed; oldest artifacts are evicted to maintain count/byte limits. Cleanup is
 lazy, not a background janitor: idle files older than seven days remain until
 the next publish or explicit clear. Completed exports can retain captured private
 bytes after source-session pruning; they are derived data, not journal roots,
-and do not prevent recorder retention. Sharing and opening are separate future
-actions. No browser/window/server is started in this slice.
+and do not prevent recorder retention. Sharing remains a separate user action.
+Exporting alone starts no browser/window/server; opening requires Ctrl-] o.
 
 ## CLI workflow
 
@@ -121,9 +121,9 @@ See [Phase5TestGuide.md](Phase5TestGuide.md) for manual verification. Existing
 [Phase 4 human native sign-off](Phase4TestGuide.md#7-human-native-mvp-sign-off)
 retains its open status; synthetic export tests do not certify provider dialogs.
 
-Next: explicit companion opening/session exports and their macOS/Linux acceptance
+Next: session exports and broader macOS/Linux companion acceptance
 checks. External manifest/configuration/JSON-RPC, plugin-facing artifact chunk
-RPC, arbitrary discovery, HTML/PNG/SVG, whole-tree grants, graphical opening and
+RPC, arbitrary discovery, plugin-supplied HTML/PNG/SVG, whole-tree grants and
 a cache inspector inside curses remain unimplemented. [VizApi.md](VizApi.md)
 remains broader than the internal runtime.
 
@@ -231,3 +231,48 @@ later distribution includes binaries/source, preserve upstream MIT notices and
 review dependency/vendor licenses separately. The upstream
 [build instructions](https://github.com/superstealthlogic/gitdiffviz/blob/1c5639469fdbadefca5b7dc4a93f260648d90ee1/README.md)
 describe the required opam/C/compiler dependencies.
+
+## Graphical opening
+
+Ctrl-] **o** opens the last completed export, separately from Ctrl-] x/g.
+The source is frozen by ID and exact published SHA-256, read from its owned
+private cache entry, and validated for envelope/content-key integrity.
+Plugin-supplied paths and URLs are ignored. Opening reads no workspace or recorder
+files and does not acquire a recording retention lease.
+
+The host renders a self-contained static HTML page with provenance, recorded
+payload, captured before/after states and, for gitdiffviz, an SVG grid of structure
+cards. This is a bounded presentation of exported nodes, not the full upstream
+interactive viewer. All recorded strings are escaped. The page has no scripts,
+external assets or local server, and includes a script/network-blocking CSP.
+Binary/non-UTF-8 content remains metadata-only; unavailable, absent, stale and
+empty captured states stay distinct. Limits are 8 MiB HTML, 200 structure nodes,
+5000 lines/262144 characters per side and 131072 characters of displayed metadata,
+with truncation labels and complete source JSON retained subject to cache policy.
+
+HTML is content-addressed by its exact bytes and atomically published with the same
+private permissions, quota/count/age cleanup and cancellation behavior as JSON.
+Both formats count against shared limits; publishing can evict an older source.
+An open page does not pin either artifact against eviction/clear. Re-export a
+missing source. Browser windows belong to the user and remain after IDE shutdown.
+
+The daemon opening worker preserves focus/selection and shares the single-job
+slot. The 30-second deadline/cancellation checks remain cooperative.
+Desktop dispatch uses macOS /usr/bin/open or Linux xdg-open on only the owned
+local HTML path, without a shell, and bounds the helper to five seconds.
+A successful request is not a browser-rendering acknowledgement. Failure retains
+the generated page and source result for retry/inspection; cancellation cannot
+undo a window already dispatched.
+
+CLI: python3 -m labradour open-export ARTIFACT_ID --sha256 SHA256 --export-cache CACHE.
+It returns the source result plus companion metadata and open_status; a desktop
+failure prints the ready result and exits 2. Generic validation failure exits 2.
+
+All 187 tests pass on macOS and Linux, including source tampering/symlink refusal,
+escaped markup, explicit opening, cache reuse/cleanup, failure fallback, CLI and
+mocked platform dispatch. A rendered live PTY check also confirms native input
+arrives during a deliberately slow opener and the page retains the earlier export.
+A disposable page was dispatched with the real macOS opener and its captured
+states, structure and provenance verified in Chrome. Real Linux desktop rendering,
+native Linux gitdiffviz and broader human/provider acceptance remain pending;
+see the manual guide. Session-wide exports remain unimplemented.
