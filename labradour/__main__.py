@@ -107,7 +107,9 @@ def main():
     export = commands.add_parser('export', help='Explicitly export one saved Activity row as JSON evidence')
     export.add_argument('directory', type=Path)
     export.add_argument('--session', required=True)
-    export.add_argument('--row', required=True, help='Stable Activity row ID; use --row list to enumerate')
+    scope = export.add_mutually_exclusive_group(required=True)
+    scope.add_argument('--row', help='Stable Activity row ID; use --row list to enumerate')
+    scope.add_argument('--whole-session', action='store_true', help='Export the durable session and captured effect pairs')
     export.add_argument('--export-cache', type=Path)
     export.add_argument('--exporter', choices=['json', 'gitdiffviz'], default='json')
     export.add_argument('--gitdiffviz-config', type=Path)
@@ -165,31 +167,41 @@ def main():
     elif args.mode == 'export':
         from .review import load_session
         from .activity import ActivityModel
-        from .exports import ArtifactCache, evidence_export, TIMEOUT, ExportError
+        from .exports import ArtifactCache, evidence_export, session_export, TIMEOUT, ExportError
         import time
         try:
-            _, _, records, projection = load_session(args.directory, args.session)
-            model = ActivityModel()
-            model.update(records, projection)
-            rows = [r for row in model.rows for r in (row, *row['children'])]
-            if args.row == 'list':
-                result = [{'id': r['id'], 'kind': r['kind'], 'tool': r['tool'], 'target': r['target']} for r in rows]
-            else:
-                row = next((r for r in rows if r['id'] == args.row), None)
-                if row is None:
-                    raise ValueError('unknown selected Activity row')
-                protected = [args.directory] + [r['payload']['workspace'] for r in records
-                              if r['kind'] == 'session.started' and isinstance(r['payload'].get('workspace'), str)]
-                cache = ArtifactCache(args.export_cache, protected)
+            if args.whole_session:
+                if args.exporter != 'json':
+                    raise ExportError('whole-session export uses JSON; gitdiffviz grants one effect only')
                 deadline = time.monotonic() + TIMEOUT
                 def check():
                     if time.monotonic() >= deadline:
                         raise ExportError('export deadline exceeded')
-                if args.exporter == 'gitdiffviz':
-                    from .gitdiffviz import gitdiffviz_export
-                    result = gitdiffviz_export(args.directory, records, row, model.revision, cache, args.gitdiffviz_config, check)
+                cache = ArtifactCache(args.export_cache, (args.directory,))
+                result = session_export(args.directory, args.session, cache, check)
+            else:
+                _, _, records, projection = load_session(args.directory, args.session)
+                model = ActivityModel()
+                model.update(records, projection)
+                rows = [r for row in model.rows for r in (row, *row['children'])]
+                if args.row == 'list':
+                    result = [{'id': r['id'], 'kind': r['kind'], 'tool': r['tool'], 'target': r['target']} for r in rows]
                 else:
-                    result = evidence_export(args.directory, records, row, model.revision, cache, check)
+                    row = next((r for r in rows if r['id'] == args.row), None)
+                    if row is None:
+                        raise ValueError('unknown selected Activity row')
+                    protected = [args.directory] + [r['payload']['workspace'] for r in records
+                                  if r['kind'] == 'session.started' and isinstance(r['payload'].get('workspace'), str)]
+                    cache = ArtifactCache(args.export_cache, protected)
+                    deadline = time.monotonic() + TIMEOUT
+                    def check():
+                        if time.monotonic() >= deadline:
+                            raise ExportError('export deadline exceeded')
+                    if args.exporter == 'gitdiffviz':
+                        from .gitdiffviz import gitdiffviz_export
+                        result = gitdiffviz_export(args.directory, records, row, model.revision, cache, args.gitdiffviz_config, check)
+                    else:
+                        result = evidence_export(args.directory, records, row, model.revision, cache, check)
         except (OSError, ValueError, sqlite3.Error) as exc:
             parser.exit(2, 'Labradour: ' + str(exc) + '\n')
         print(json.dumps(result, indent=2))

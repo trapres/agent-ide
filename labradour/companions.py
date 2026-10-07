@@ -61,18 +61,58 @@ def render(document, source_hash, check=lambda: None):
     provenance, evidence = document['provenance'], document['evidence']
     selection = evidence.get('selection', {})
     payload = selection.get('payload', {})
-    title = str(payload.get('path') or payload.get('tool') or 'Recorded evidence')[:512]
+    session_view = selection.get('kind') == 'session'
+    title = ('Session ' + str(payload.get('session_id')) if session_view else
+             str(payload.get('path') or payload.get('tool') or 'Recorded evidence'))[:512]
     parts = ['<!doctype html><html lang="en"><head><meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width,initial-scale=1">',
         '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'none\'; style-src \'unsafe-inline\'; img-src \'none\'; object-src \'none\'; base-uri \'none\'; form-action \'none\'">',
         '<title>Labradour — ' + escaped(title) + '</title>',
-        '<style>body{margin:0;background:#101923;color:#e6edf3;font:16px system-ui;line-height:1.5}main{max-width:1200px;margin:auto;padding:32px}h1{overflow-wrap:anywhere}h2{margin-top:32px}.meta{color:#acc0d0;overflow-wrap:anywhere}.badge{display:inline-block;border:1px solid #577183;padding:4px 10px;border-radius:8px}pre{background:#182634;padding:16px;overflow:auto;border-radius:8px;font:14px/1.5 monospace}svg{width:100%;height:auto}rect{fill:#20394b;stroke:#7197af}text{fill:#e6edf3;font:13px monospace}.sides{display:grid;grid-template-columns:1fr 1fr;gap:20px}.sides>*{min-width:0}@media(max-width:700px){.sides{grid-template-columns:1fr}main{padding:16px}}</style></head><body><main>',
+        '<style>body{margin:0;background:#101923;color:#e6edf3;font:16px system-ui;line-height:1.5}main{max-width:1200px;margin:auto;padding:32px}h1{overflow-wrap:anywhere}h2{margin-top:32px}.meta{color:#acc0d0;overflow-wrap:anywhere}.badge{display:inline-block;border:1px solid #577183;padding:4px 10px;border-radius:8px}pre{background:#182634;padding:16px;overflow:auto;border-radius:8px;font:14px/1.5 monospace}svg{width:100%;height:auto}rect{fill:#20394b;stroke:#7197af}text{fill:#e6edf3;font:13px monospace}table{width:100%;table-layout:fixed}td,th{padding:8px;text-align:left;overflow-wrap:anywhere}details{margin:16px 0}summary{cursor:pointer;overflow-wrap:anywhere}.sides{display:grid;grid-template-columns:1fr 1fr;gap:20px}.sides>*{min-width:0}@media(max-width:700px){.sides{grid-template-columns:1fr}main{padding:16px}}</style></head><body><main>',
         '<div class="badge">Saved evidence · local companion</div><h1>' + escaped(title) + '</h1>',
         '<p>File attribution: external-or-unknown. Candidate intervals do not prove ownership.</p>',
         '<p class="meta">Session ' + escaped(provenance.get('session_id')) + '<br>Selection ' + escaped(provenance.get('selection_id')) +
-        '<br>Captured interval: ' + escaped(provenance.get('before_commit')) + ' → ' + escaped(provenance.get('checkpoint')) +
+        ('<br>Captured intervals: listed per effect' if session_view else
+         '<br>Captured interval: ' + escaped(provenance.get('before_commit')) + ' → ' + escaped(provenance.get('checkpoint'))) +
         '<br>Source artifact SHA-256: ' + escaped(source_hash) + '</p>',
         '<p>This derived view uses captured evidence. It does not rerun commands or read today’s workspace.</p>']
+    if session_view:
+        projection = evidence['projection']
+        parts += ['<h2>Session activity</h2><p>Status: ' + escaped(payload.get('status')) +
+                  '. Journal sequence orders ingestion; candidate links do not prove causality. Terminal output was not recorded.</p>',
+                  '<p>%d journal records · %d actions · %d effects · %d gaps</p>' % (
+                      len(evidence['journal']), len(projection['actions']), len(projection['effects']), len(projection['gaps'])),
+                  '<table><thead><tr><th>Sequence</th><th>Tool</th><th>State</th><th>Action / candidate effects</th></tr></thead><tbody>']
+        sequences = {record['event_id']: record['sequence'] for record in evidence['journal']}
+        for action in projection['actions']:
+            check()
+            parts.append('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s<br>%s</td></tr>' % (
+                escaped(sequences.get(next(iter(action.get('observations', [])), None), 'unknown')),
+                escaped(action.get('tool')), escaped(action.get('state')), escaped(action['id']),
+                escaped(', '.join(action.get('effect_ids', [])))))
+        parts.append('</tbody></table><h2>Recorded gaps</h2><pre>' +
+                     escaped(json.dumps(projection['gaps'], ensure_ascii=True, indent=2)[:131072]) + '</pre><h2>Captured effects</h2>')
+        effects = {effect['id']: effect for effect in projection['effects']}
+        rendered_size = sum(len(part.encode('utf-8')) for part in parts)
+        for pair in evidence['file_pairs']:
+            check()
+            effect = effects[pair['effect_id']]
+            pair_document = {'provenance': dict(provenance, before_commit=effect.get('before_commit'),
+                                               checkpoint=effect.get('checkpoint')),
+                             'evidence': {'selection': {'kind': 'effect', 'payload': effect},
+                                          'before': pair['before'], 'after': pair['after']}}
+            page = render(pair_document, source_hash, check).decode('utf-8')
+            states = '<h2>Captured states' + page.split('<h2>Captured states', 1)[1].split('<h2>Recorded payload', 1)[0]
+            section = ('<details><summary>%s · %s · %s · sequence %s</summary><p class="meta">%s<br>%s → %s<br>'
+                       'Candidate actions: %s</p>%s</details>') % (
+                escaped(effect['path']), escaped(effect['operation']), escaped(effect['capture_quality']),
+                escaped(sequences.get(effect['snapshot_event_id'], 'unknown')),
+                escaped(effect['id']), escaped(effect.get('before_commit')), escaped(effect.get('checkpoint')),
+                escaped(', '.join(effect.get('candidate_action_ids', []))), states)
+            rendered_size += len(section.encode('utf-8'))
+            if rendered_size > HTML_LIMIT:
+                raise ExportError('session graphical view exceeds HTML limit; inspect JSON or export selected rows')
+            parts.append(section)
     scene = evidence.get('gitdiffviz', {}).get('scene', {}).get('scene', {})
     nodes = scene.get('nodes', [])
     if nodes:
@@ -116,7 +156,8 @@ def render(document, source_hash, check=lambda: None):
             parts.append('</section>')
         parts.append('</div>')
     parts += ['<h2>Recorded payload and provenance</h2>']
-    details = json.dumps({'selection':selection, 'observations':evidence.get('observations', []), 'provenance':provenance}, ensure_ascii=True, indent=2)
+    details = json.dumps({'selection':selection, 'observations':evidence.get('observations', []),
+                          'journal':evidence.get('journal', []), 'provenance':provenance}, ensure_ascii=True, indent=2)
     parts.append('<pre>' + escaped(details[:131072]) + '</pre>')
     if len(details) > 131072:
         parts.append('<p>Evidence display truncated; inspect the source JSON for complete exported details.</p>')

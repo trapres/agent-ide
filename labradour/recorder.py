@@ -580,7 +580,7 @@ class Recorder:
                 self.lock.close()
 
 
-def read_history(directory, session=None):
+def read_history(directory, session=None, record_limit=None, byte_limit=None):
     database = Path(directory).resolve() / "journal.sqlite"
     with closing(sqlite3.connect(database.as_uri() + ("?mode=ro" if Path(str(database) + "-wal").exists() else "?mode=ro&immutable=1"), uri=True)) as db:
         if session is None:
@@ -593,7 +593,12 @@ def read_history(directory, session=None):
                     session["status"] = health["status"]
             return sessions
         result = []
+        bytes_read = 0
         for sequence, raw in db.execute("SELECT sequence, record FROM events WHERE session_id=? ORDER BY sequence", (session,)):
+            bytes_read += len(raw.encode('utf-8'))
+            if ((record_limit is not None and len(result) >= record_limit)
+                    or (byte_limit is not None and bytes_read > byte_limit)):
+                raise ValueError('session exceeds journal read limits; export selected rows instead')
             record = json.loads(raw)
             record["sequence"] = sequence
             result.append(record)

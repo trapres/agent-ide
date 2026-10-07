@@ -121,7 +121,7 @@ See [Phase5TestGuide.md](Phase5TestGuide.md) for manual verification. Existing
 [Phase 4 human native sign-off](Phase4TestGuide.md#7-human-native-mvp-sign-off)
 retains its open status; synthetic export tests do not certify provider dialogs.
 
-Next: session exports and broader macOS/Linux companion acceptance
+Next: broader human macOS/Linux companion acceptance
 checks. External manifest/configuration/JSON-RPC, plugin-facing artifact chunk
 RPC, arbitrary discovery, plugin-supplied HTML/PNG/SVG, whole-tree grants and
 a cache inspector inside curses remain unimplemented. [VizApi.md](VizApi.md)
@@ -275,4 +275,60 @@ arrives during a deliberately slow opener and the page retains the earlier expor
 A disposable page was dispatched with the real macOS opener and its captured
 states, structure and provenance verified in Chrome. Real Linux desktop rendering,
 native Linux gitdiffviz and broader human/provider acceptance remain pending;
-see the manual guide. Session-wide exports remain unimplemented.
+see the manual guide. Bounded session-wide exports are described below.
+
+## Session exports and broad automated acceptance
+
+Saved review Ctrl-] **u**, or CLI export with **--whole-session**, explicitly
+exports one durable session. CLI scope is mutually exclusive with --row.
+The request freezes the session ID; the worker loads its current durable journal
+and projection independently of Activity filters, selection and expanded effects.
+Switching sessions/layouts cannot retarget it. The live UI directs users to saved
+review. An unclosed saved session is labeled saved-unclosed and contains only
+facts durable at export time; this is not terminal replay or a restorable store.
+
+The JSON envelope stays schema version 1 with exporter labradour-session-json.
+Evidence includes session metadata, the complete bounded journal, the correlation
+projection (actors/actions/effects/gaps) and file_pairs keyed by unique effect ID.
+Only recorded effects grant captured path/interval reads. Unavailable, stale,
+policy/metadata-only and absent states stay explicit; no current workspace
+fallback or command replay occurs. Metadata-only paths may have journal metadata
+without producing any effect. Candidate associations remain non-exclusive.
+
+Limits: 10000 records, 256 unique effects, 8 MiB aggregate raw captured pair
+bytes, the existing 256 KiB side reads and 64 MiB artifact limit.
+Repeated states across distinct comparisons count separately. A limit/cancellation
+failure publishes no partial session archive; selected-row export is the fallback.
+The shared single daemon job uses the existing cooperative 30-second deadline.
+One read lease covers journal/projection and all pair reads; it ends before cache
+publication. This coordinates cooperating retention without permanent session
+pins. Published artifacts can outlive source pruning, subject to cache cleanup.
+
+The static companion adds session status/counts, sequence-labeled action states,
+candidate IDs, gaps and expandable historical pairs with original checkpoint
+intervals. It retains the same escaping/CSP and 8 MiB HTML bound. Displayed
+metadata is bounded/labeled; JSON remains the complete exported evidence.
+Whole-session exports do not run gitdiffviz: its grant remains one selected file.
+
+All 197 tests pass on macOS/Python 3.9 and Linux/Python 3.11.
+Automated tests cover captured scope/immutability, cached repeats, local limits,
+write failure, missing objects, lease lifetime, artifacts after pruning,
+session changes, unclosed gaps/policy omissions, cancelled opening and CLI scopes.
+Existing rendered live PTY acceptance checks input during export/open and frozen
+source bytes; platform dispatcher/failure/cache tests remain applicable.
+
+The disposable tools/companion_probe.py measures a 53-record/27-effect session,
+including edit/revert/create/delete/empty/binary/metadata-only, unknown action,
+gap, escaped markup, cache reuse and pruning. Reports are
+[macOS](companion-acceptance-macos.json) and
+[Linux](companion-acceptance-linux.json). Timings describe those fixtures and hosts,
+not a universal worst-case guarantee.
+
+Implementation and automated acceptance are complete within these limits.
+A disposable session index and expanded alpha/beta comparison were also verified
+in real macOS Chrome. Human broad companion sign-off remains open: Linux desktop
+and broader browser checks,
+real provider workflows and native Linux gitdiffviz are explicitly pending in
+[Phase5TestGuide.md](Phase5TestGuide.md#7-session-exports-and-broad-human-sign-off).
+The container has no Linux desktop or OCaml/opam build; fixture success does not
+certify those unavailable environments or close earlier native gates.

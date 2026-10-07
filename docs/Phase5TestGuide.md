@@ -2,7 +2,7 @@
 
 Currently available: explicit JSON evidence export, artifact-cache lifecycle and
 an optional pinned gitdiffviz diff/scene JSON adapter, and explicit opening of
-host-rendered static HTML companions. Session-wide exports remain upcoming.
+host-rendered static HTML companions, and bounded whole-session exports.
 
 ## 1. Export selected historical evidence
 
@@ -95,7 +95,7 @@ file for cleanup on the next explicit publish/clear.
 The internal worker uses cooperative cancellation and a 30-second deadline; it
 cannot forcibly interrupt arbitrary Python/file I/O. External subprocess isolation,
 plugin manifest/RPC, plugin-supplied graphical formats, automatic discovery,
-and session-wide export are not implemented. Existing human
+are not implemented. Existing human
 native acceptance remains in [Phase4TestGuide.md](Phase4TestGuide.md).
 
 ## 5. Configure the optional gitdiffviz adapter
@@ -166,7 +166,7 @@ Limits: binary 32 MiB, generated document 8 MiB each, captured logs 1 MiB total,
 sampled temporary usage 64 MiB/256 entries, subprocess 10 seconds, export 30 seconds
 with cooperative checks. The configured executable is trusted code, not OS-sandboxed.
 Semantic symbols, cross-file rename inference, whole-workspace/session grants,
-timeline exports, the full upstream interactive viewer and packaging remain subsequent work.
+the full upstream interactive viewer and packaging remain subsequent work.
 
 Native macOS backend cases are measured. Linux subprocess/adapter behavior is
 tested with executable fixtures; the current container lacks OCaml/opam, so native
@@ -233,6 +233,83 @@ ID/SHA: validation must reject it before browser dispatch. Re-export to restore 
 Automated tests pass on macOS/Linux. Real macOS desktop dispatch and Chrome page
 contents were checked with a disposable fixture; Linux desktop visual acceptance
 and real native Linux gitdiffviz remain pending. Record OS/browser, tested cases,
-input behavior and pass/fail results when checking those manually. Session-wide
-exports, active plugin HTML, arbitrary URLs/server commands, PNG export and the
+input behavior and pass/fail results when checking those manually. Active plugin HTML, arbitrary URLs/server commands, PNG export and the
 full upstream interactive viewer are not implemented.
+
+## 7. Session exports and broad human sign-off
+
+Start saved review of a disposable multi-edit recording. Press **Ctrl-] u** to
+export the open session, then **Ctrl-] t** for status and **Ctrl-] o** to open it.
+The request covers all durable session evidence, regardless of Activity filters,
+expanded rows, selected effect, or pane layout. It does not launch an agent.
+The live UI directs this shortcut to saved review instead.
+
+CLI equivalent:
+
+```sh
+python3 -m labradour export RECORDING --session SESSION_ID --whole-session --export-cache CACHE
+python3 tools/companion_probe.py
+python3 -m unittest tests.test_session_exports.SessionExportTests tests.test_companions -q
+```
+
+Choose exactly one of --row and --whole-session. Whole-session JSON does not
+invoke gitdiffviz or grant it the workspace/session; --exporter gitdiffviz is
+rejected for that scope.
+
+Check JSON evidence.journal against history --session, and projection against
+the actions CLI. file_pairs has one entry per unique projected effect, not one
+duplicate per candidate call. Each pair names its effect ID and retains the
+recorded checkpoint interval. Provenance identifies the session and durable
+journal revision. An unclosed saved session stays saved-unclosed, never
+masquerading as complete. Terminal output is not reconstructed. Capture
+metadata/policy omissions can exist in journal snapshots without a file effect;
+the export must retain those facts without inventing a comparison.
+
+The companion shows session status/counts, action states with sequence numbers
+and candidate effect IDs, recorded gaps, and expandable captured effects.
+Expand a few edit/revert/create/delete comparisons. Check original captured bytes,
+binary/empty/missing states, unknown ownership and checkpoint intervals against
+the built-in view. Metadata-only paths must expose no private bytes. Recorded
+commands are displayed as evidence and never run.
+
+While a session export is pending, switch sessions in the Agent/session pane,
+filter Activity, resize or apply a layout. The result must retain the requested
+session and leave the new selection/view intact. Repeating a pending request is
+refused; cancellation/quit remain responsive. The journal is loaded by the
+worker, so a saved unclosed recording may contain additional durable records
+since its last UI refresh; provenance describes what was actually exported.
+
+Limits: 10000 journal records, 256 unique effects, 8 MiB aggregate raw captured
+pair bytes, existing 256 KiB-per-side reads, 64 MiB JSON and 8 MiB HTML. Content
+counts repeated states in different comparisons. Exceeding a limit fails locally
+with a selected-row fallback; it does not publish a partial session archive.
+Large companion metadata has labeled display truncation; source JSON retains
+the exported evidence. HTML can exceed its limit even when JSON fits.
+
+Using only a disposable recording with a newer second session, export the older
+session, then preview/apply prune --keep-sessions 1. The completed artifact must
+still open and match its earlier bytes. Re-exporting the removed session must
+fail. Prune may report busy during a short session evidence read: retry after the
+job finishes. No export pins a session after publication. Cache clear removes
+derived artifacts without touching the remaining recording.
+
+The disposable probe records macOS/Linux timing and checks across history,
+policy omission, unknown actions, gaps, escaped markup, cache reuse and pruning.
+Reports: [macOS](companion-acceptance-macos.json) and
+[Linux](companion-acceptance-linux.json). It does not open a desktop or certify
+real provider behavior.
+
+To close the human gate, record all applicable results below in your sign-off
+notes. Report unavailable environments explicitly rather than marking them passed.
+
+| Check | Expected result | Current evidence |
+| --- | --- | --- |
+| Session page in macOS browser, wide/narrow windows | Index and expanded states readable; hashes/provenance match JSON | Real macOS Chrome index/expanded comparison checked; narrow-window check pending |
+| Session page on Linux desktop | xdg-open dispatch and readable page | Automated dispatch/static tests; desktop check pending |
+| Native Linux gitdiffviz | Pinned real backend probe and selected-file page pass | Pending; container lacks OCaml/opam |
+| Real Claude and Codex on each deployed OS | Row export/open during Agent input, paste/approval/tool traffic, layout changes; recorder stays responsive | Synthetic PTY checks pass; provider check pending |
+| Saved session change, cancellation, limits, retention/cache cleanup | Original scope retained; local failure/fallback; no recorder mutation | Automated cases pass; manual workflow check pending |
+
+For each row record OS/browser/provider/backend versions, recording fixture,
+cases, observed behavior and pass/fail or explicitly accepted limitation. Earlier
+Phase 2/4 human gates keep their own status; this slice does not close them.

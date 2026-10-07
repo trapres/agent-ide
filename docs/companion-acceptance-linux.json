@@ -1,0 +1,31 @@
+{
+  "platform": "Linux-7.0.12-linuxkit-aarch64-with-glibc2.41",
+  "python": "3.11.17",
+  "scope": "durable session JSON/static HTML; no real desktop or provider dialogs",
+  "records": 53,
+  "effects": 27,
+  "actions": 1,
+  "gaps": 1,
+  "export_ms": 135.294,
+  "html_render_ms": 1.594,
+  "json_bytes": 62667,
+  "html_bytes": 88917,
+  "verified_cache_reuse": true,
+  "source_recording_unchanged": true,
+  "derived_artifacts_survive_prune": true,
+  "cases": [
+    "baseline",
+    "edit",
+    "revert",
+    "creation",
+    "deletion",
+    "empty",
+    "binary",
+    "metadata-only",
+    "incomplete tool action",
+    "capture gap",
+    "escaped markup",
+    "cache reuse",
+    "session pruning"
+  ]
+}

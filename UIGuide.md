@@ -298,3 +298,21 @@ After either JSON export completes, **Ctrl-] o** prepares and opens a host-rende
 ## Inspecting correlation before the review UI
 
 Run `python3 -m labradour history RECORDING` to find a session, then `python3 -m labradour actions RECORDING --session SESSION_ID`. This prints replayed tool states, explicit actor relationships, output references, checkpoint effects, candidate calls, and evidence gaps. Recorded Activity now displays this projection, with built-in historical views and JSON evidence details; Ctrl-] then `r` retains raw journal inspection. The CLI is still useful for complete replay/export. A candidate call never establishes exclusive file ownership. See [Phase2TestGuide.md](docs/Phase2TestGuide.md) for scenarios and interpretation.
+
+## Export a saved session
+
+In saved review, **Ctrl-] u** exports the open session's durable journal,
+action/effect/gap projection and captured effect pairs, regardless of Activity
+filters or selected rows. It keeps focus and selection. **Ctrl-] t** shows status;
+**Ctrl-] o** opens the completed session companion with an action index and
+expandable comparisons. Switching sessions during the job keeps the original
+requested session. The live UI directs this action to saved review.
+
+CLI: `python3 -m labradour export RECORDING --session SESSION_ID --whole-session --export-cache CACHE`.
+Choose either --whole-session or --row. Whole-session export uses JSON and does
+not invoke gitdiffviz. It is derived evidence, not terminal replay or a restorable
+recording; unclosed sessions remain labeled. Limits are 10000 journal records,
+256 effects, 8 MiB raw pair bytes and the existing artifact/read bounds. A limit
+failure suggests selected-row exports instead of publishing a partial archive.
+See [Phase5TestGuide.md](docs/Phase5TestGuide.md#7-session-exports-and-broad-human-sign-off)
+for scope, retention and desktop acceptance checks.

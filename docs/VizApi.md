@@ -329,3 +329,15 @@ This document defines the proposed integration boundary. Current manual checks r
 ## Current correlation foundation
 
 Phase 2 now provides `python3 -m labradour actions RECORDING --session SESSION_ID`, a read-only journal projection with stable opaque action/effect IDs, scoped actor identities, raw input/output/error references, immutable checkpoint references, candidate action lists, capture quality, and evidence gaps. See [Phase2.md](Phase2.md) for semantics. The output is an internal replay format; the scoped evidence handles, plugin transport, view revisions, and rendering API described above remain proposed Phase 4 work. A future context adapter must retain its ambiguous attribution and missing evidence rather than infer exclusive ownership.
+
+The internal session exporter is an explicit host-only grant, available through
+saved-review Ctrl-] u and CLI export --whole-session. It snapshots one durable
+journal under a read lease, preserves the correlation projection and loads
+captured pairs only for unique recorded effects. Limits are 10000 records,
+256 effects, 8 MiB aggregate raw pair bytes and existing artifact/read bounds.
+A limit failure publishes no partial archive. Its session-json envelope adds
+evidence.session, journal, projection and file_pairs; selection.kind is session.
+The static host companion indexes action states and expandable effects.
+This does not expose session/whole-tree handles to plugins: the gitdiffviz
+adapter still accepts only one selected effect. Broader external grants/RPC
+remain proposed.

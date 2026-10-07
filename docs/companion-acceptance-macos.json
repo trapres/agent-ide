@@ -1,0 +1,31 @@
+{
+  "platform": "macOS-26.7.1-arm64-arm-64bit",
+  "python": "3.9.6",
+  "scope": "durable session JSON/static HTML; no real desktop or provider dialogs",
+  "records": 53,
+  "effects": 27,
+  "actions": 1,
+  "gaps": 1,
+  "export_ms": 2628.321,
+  "html_render_ms": 2.117,
+  "json_bytes": 62512,
+  "html_bytes": 88762,
+  "verified_cache_reuse": true,
+  "source_recording_unchanged": true,
+  "derived_artifacts_survive_prune": true,
+  "cases": [
+    "baseline",
+    "edit",
+    "revert",
+    "creation",
+    "deletion",
+    "empty",
+    "binary",
+    "metadata-only",
+    "incomplete tool action",
+    "capture gap",
+    "escaped markup",
+    "cache reuse",
+    "session pruning"
+  ]
+}

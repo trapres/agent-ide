@@ -87,6 +87,13 @@ class Harness:
         if not self.recording:
             self.export_job.message = 'Export unavailable: recording is disabled'
             return
+        if exporter == 'session':
+            if not getattr(self, 'saved_review', False):
+                self.export_job.message = 'Session export: open saved review first'
+                return
+            row = {'id': 'session:' + self.session, 'kind': 'session', 'payload': {'session_id': self.session}}
+            self.export_job.start(self.recording, (), row, None, 'session')
+            return
         row = self.activity.selected()
         if row and self.visualizer_selection == row['id'] and self.visualizer_effect is not None and row['children']:
             row = row['children'][self.visualizer_effect % len(row['children'])]
@@ -201,6 +208,9 @@ class Harness:
             if key == "o":
                 self.export_job.open_graphical()
                 return
+            if key == "u":
+                self.export_selection('session')
+                return
             if key == "t":
                 self.export_view = not self.export_view
                 self.focus = 'visualization'
@@ -251,7 +261,7 @@ class Harness:
             elif key == "q":
                 self.running = False
             else:
-                self.notice = "Prefix: : layout | i layout status | x export / g gitdiffviz / o open / c cancel / t status | a/l/v focus | q stop"
+                self.notice = "Prefix: : layout | i layout status | x row / u session / g gitdiffviz / o open / c cancel / t status | a/l/v focus | q stop"
             return
         if kind == "literal":
             self.child.send(token)
@@ -419,7 +429,7 @@ class Harness:
                 from .exports import ARTIFACT_LIMIT, CACHE_LIMIT, MAX_ARTIFACTS, MAX_AGE
                 lines = ['Export status | Ctrl-] x export / c cancel / t return',
                          self.export_job.message or 'No export requested.',
-                         'x JSON / g gitdiffviz / o open completed local companion.',
+                         'x row JSON / g gitdiffviz / u saved session / o open companion.',
                          'Artifact limit %d MiB; cache %d MiB / %d artifacts / %d days.' % (
                              ARTIFACT_LIMIT // 1048576, CACHE_LIMIT // 1048576, MAX_ARTIFACTS, MAX_AGE // 86400)]
                 if self.export_job.result:

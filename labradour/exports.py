@@ -1,8 +1,4 @@
-"""Explicit, local evidence exports. No opening, command replay or plugins.
-
-Artifacts are disposable derived data in a separate bounded private cache.
-Only completed single-file JSON artifacts are published in this first slice.
-"""
+"""Explicit evidence exports and host artifacts in a separate bounded cache."""
 import base64
 from contextlib import contextmanager
 import fcntl
@@ -27,6 +23,9 @@ TIMEOUT = 30
 CHUNK = 64 * 1024
 EXPORTER = 'labradour-evidence-json'
 VERSION = '1'
+SESSION_RECORD_LIMIT = 10000
+SESSION_EFFECT_LIMIT = 256
+SESSION_CONTENT_LIMIT = 8 * 1024 * 1024
 ARTIFACT_NAME = re.compile(r'[0-9a-f]{64}\.(json|html)')
 PENDING_NAME = re.compile(r'\.pending-[0-9a-f]{32}\.tmp')
 
@@ -271,6 +270,56 @@ def evidence_export(directory, records, row, revision, cache, check=lambda: None
     return cache.publish({'provenance': provenance, 'evidence': evidence}, check)
 
 
+def session_export(directory, session, cache, check=lambda: None):
+    """Grant recorded effect pairs for one durable session; publish after releasing its lease."""
+    from .review import load_session
+    from .leases import evidence_lease
+    check()
+    with evidence_lease(directory):
+        try:
+            sessions, selected, records, projection = load_session(
+                directory, session, record_limit=SESSION_RECORD_LIMIT, byte_limit=ARTIFACT_LIMIT)
+        except ValueError as exc:
+            raise ExportError(str(exc)) from exc
+        check()
+        cache_path(cache.path, [directory] + [r['payload']['workspace'] for r in records
+            if r['kind'] == 'session.started' and isinstance(r['payload'].get('workspace'), str)])
+        if len(records) > SESSION_RECORD_LIMIT or len(projection['effects']) > SESSION_EFFECT_LIMIT:
+            raise ExportError('session exceeds record/effect limits; export selected rows instead')
+        # Reject oversized metadata before reading any captured file pairs.
+        digest({'journal': records, 'projection': projection}, check)
+        reader = EvidenceReader(directory, records)
+        pairs, content_bytes = [], 0
+        for effect in projection['effects']:
+            check()
+            before, after = reader.effect(effect)
+            check()
+            for side in (before, after):
+                if 'bytes' in side:
+                    data = side.pop('bytes')
+                    content_bytes += len(data)
+                    if content_bytes > SESSION_CONTENT_LIMIT:
+                        raise ExportError('session exceeds captured-content limit; export selected rows instead')
+                    side.update(content_base64=base64.b64encode(data).decode('ascii'), content_encoding='base64')
+            pairs.append({'effect_id': effect['id'], 'before': before, 'after': after})
+        info = next(s for s in sessions if s['id'] == selected)
+        revision = (len(records), records[-1]['sequence'] if records else 0, projection['session_status'])
+        provenance = {
+            'exporter': 'labradour-session-json', 'exporter_version': VERSION,
+            'format': 'application/json', 'options': {}, 'recording_directory': str(Path(directory).resolve()),
+            'session_id': selected, 'selection_id': 'session:' + selected, 'evidence_revision': revision,
+            'file_attribution': 'external-or-unknown',
+            'limitations': ['Durable journal snapshot, not terminal replay or a restorable recording.',
+                            'Candidate intervals do not establish exclusive causality.',
+                            'File pairs retain capture policy, gaps, stale states and historical read limits.',
+                            'An unclosed session contains only evidence durable at export time.']}
+        evidence = {'selection': {'id': 'session:' + selected, 'kind': 'session',
+                                  'payload': {'session_id': selected, 'status': projection['session_status']}},
+                    'session': info, 'journal': records, 'projection': projection, 'file_pairs': pairs}
+    check()
+    return cache.publish({'provenance': provenance, 'evidence': evidence}, check)
+
+
 class ExportJob:
     """One explicit job, one result; selection changes never retarget its scope."""
     def __init__(self, cache=None, protected=(), gitdiffviz_config=None):
@@ -306,7 +355,9 @@ class ExportJob:
         def work():
             try:
                 cache = self.cache if isinstance(self.cache, ArtifactCache) else ArtifactCache(self.cache, self.protected)
-                if exporter == 'gitdiffviz':
+                if exporter == 'session':
+                    result = session_export(directory, selected['payload']['session_id'], cache, check)
+                elif exporter == 'gitdiffviz':
                     from .gitdiffviz import gitdiffviz_export
                     result = gitdiffviz_export(directory, copied, selected, revision, cache, self.gitdiffviz_config, check)
                 else:

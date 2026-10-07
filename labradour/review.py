@@ -15,7 +15,7 @@ from .terminal import Terminal
 from .ui import Harness
 
 
-def load_session(directory, session=None):
+def load_session(directory, session=None, record_limit=None, byte_limit=None):
     with evidence_lease(directory):
         sessions = read_history(directory)
         if not sessions:
@@ -24,7 +24,7 @@ def load_session(directory, session=None):
         info = next((s for s in sessions if s['id'] == selected), None)
         if info is None:
             raise ValueError('unknown or pruned recording session')
-        records = read_history(directory, selected)
+        records = read_history(directory, selected, record_limit=record_limit, byte_limit=byte_limit)
     # A persisted running status is a fact, not permission to launch/recover.
     status = 'saved-unclosed' if info['status'] == 'running' else info['status']
     return sessions, selected, records, project(records, status)
