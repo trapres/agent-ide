@@ -4,6 +4,13 @@ Currently available: explicit JSON evidence export, artifact-cache lifecycle and
 an optional pinned gitdiffviz diff/scene JSON adapter, and explicit opening of
 host-rendered static HTML companions, and bounded whole-session exports.
 
+For a shorter demo with the real GitDiffViz backend and its interactive browser
+viewer, see [GitDiffViz demo](GitDiffVizDemo.md), or run
+`.venv/bin/python tools/gitdiffviz_demo.py`. That launcher prepares the pinned
+build/configuration and a disposable recording automatically, using an existing
+GitDiffViz checkout/local opam switch. Section 5 below covers the adapter's manual
+setup and acceptance checks; section 6 covers the core static companion.
+
 ## 1. Export selected historical evidence
 
 Create a disposable recording with an edit/revert using the

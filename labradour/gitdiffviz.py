@@ -238,7 +238,7 @@ def gitdiffviz_export(directory, records, row, revision, cache, config_path, che
         options={'source_revision':SOURCE_REVISION, 'binary_sha256':config['sha256'],
                  'scope':'selected-file-only', 'semantics':'structural-only'})
     core['provenance']['limitations'] += ['Synthetic selected-file commits are not original project/checkpoint commits.',
-        'Scene is structural only; semantic extraction and graphical opening are not implemented.']
+        'Scene is structural only; semantic extraction is not implemented.']
     request_key = digest(core, check)
     cached = reuse(cache, request_key, check)
     if cached:

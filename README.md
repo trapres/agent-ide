@@ -6,6 +6,13 @@ For a hands-on walkthrough of current behavior, recorder checks, and features st
 
 The proposed integration contract for customizable visualization plugins is in [VizApi.md](docs/VizApi.md).
 
+For a demo using the real GitDiffViz backend and interactive browser viewer, run
+`.venv/bin/python tools/gitdiffviz_demo.py` from this repository. It builds the
+supported revision from the sibling `../gitdiffviz` checkout using that checkout's
+installed local opam switch, creates disposable captured history, configures the
+adapter, and prints a local viewer URL. See [GitDiffViz demo](docs/GitDiffVizDemo.md)
+for prerequisites, saved review, and current integration limits.
+
 Phase 2 work is tracked in [Tasks.md](Tasks.md). The authenticated collector, Claude/Codex mappings, boundary receipts, fixtures, and coverage matrix are described in [Phase2.md](docs/Phase2.md). Read-only correlation is available through `actions`; real macOS delivery, denial/concurrency and Linux Codex delivery have measured evidence; the broader native gate remains open. Follow [Phase2TestGuide.md](docs/Phase2TestGuide.md).
 
 The repository contains the **Phase 0 harness and the accepted Phase 1 generic recorder**. The full review MVP remains later work. It requires Python 3.9+, Git, pyte, watchdog, and wcwidth. Dependency versions are in [requirements.txt](requirements.txt); use `python3 -m pip install -r requirements.txt` with the interpreter you will launch. Automated acceptance passes on macOS/Python 3.9.6 and Linux arm64/Python 3.11.17 in Docker. Measurements and reproduction commands are in [Recorder acceptance](docs/RecorderAcceptance.md).
