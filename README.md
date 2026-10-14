@@ -10,6 +10,8 @@ prepared checkout, launch it with:
 .venv/bin/python -m labradour desktop
 ```
 
+You should see the [Desktop app launch](art/desktop.png)
+
 Choose **Sample recording** for an immediate embedded GitDiffViz demo, **Start
 demo** for the interactive fake agent, or **Open project…** to choose Codex/Claude
 and an optional model ID. See [Desktop setup and walkthrough](docs/Desktop.md)
