@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Labradour",
+  "version": "0.1.0",
+  "identifier": "dev.labradour.desktop",
+  "build": { "frontendDist": "../dist" },
+  "app": {
+    "windows": [{ "label": "main", "title": "Labradour", "width": 1500, "height": 960,
+      "minWidth": 900, "minHeight": 600 }],
+    "security": { "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; object-src 'none'" }
+  },
+  "bundle": { "active": false }
+}

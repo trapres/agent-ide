@@ -1,6 +1,19 @@
 # Labradour
 
-An ncurses IDE for watching CLI agents work. Architecture: [AgentIDEPlan.md](AgentIDEPlan.md). UI specification: [AgentUI.md](AgentUI.md). User controls and review workflow: [UIGuide.md](UIGuide.md).
+An IDE for watching CLI agents work, with a Cargo/Tauri desktop UI and the original ncurses frontend. Architecture: [AgentIDEPlan.md](AgentIDEPlan.md). Terminal UI specification: [AgentUI.md](AgentUI.md). Terminal controls and review workflow: [UIGuide.md](UIGuide.md).
+
+The desktop window puts an xterm.js agent terminal, recorded Activity, source
+comparisons and the interactive GitDiffViz renderer in resizable panels. From a
+prepared checkout, launch it with:
+
+```sh
+.venv/bin/python -m labradour desktop
+```
+
+Choose **Sample recording** for an immediate embedded GitDiffViz demo, **Start
+demo** for the interactive fake agent, or **Open project…** to choose Codex/Claude
+and an optional model ID. See [Desktop setup and walkthrough](docs/Desktop.md)
+for first-time installation, saved review and current migration scope.
 
 For a hands-on walkthrough of current behavior, recorder checks, and features still planned, see [Phase 1 manual testing guide](docs/Phase1TestGuide.md).
 

@@ -1,0 +1,19 @@
+{
+  "name": "labradour-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare": "../.venv/bin/python ../tools/desktop_prepare.py",
+    "build": "npm run prepare && node build.mjs",
+    "dev": "npm run build && cargo run --manifest-path src-tauri/Cargo.toml",
+    "app": "npm run build && cargo build --manifest-path src-tauri/Cargo.toml && ../.venv/bin/python ../tools/desktop_bundle.py",
+    "check": "npm run build && cargo check --manifest-path src-tauri/Cargo.toml"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "@xterm/xterm": "^5.5.0",
+    "@xterm/addon-fit": "^0.10.0"
+  },
+  "devDependencies": { "esbuild": "^0.25.0" }
+}

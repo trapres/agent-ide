@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Labradour</title><link rel="stylesheet" href="app.css"></head>
+<body>
+<header><div class="brand"><span class="mark">L</span><strong>Labradour</strong><span class="tag">DESKTOP</span></div>
+<nav><button id="demo">Start demo</button><button id="sample">Sample recording</button><button id="settings">Open project…</button><button id="stop" disabled>Stop agent</button></nav></header>
+<main>
+  <section id="agent-panel" class="panel"><div class="panel-heading"><span>Agent terminal</span><span id="agent-state" class="muted">Ready</span></div><div id="terminal"></div><div id="terminal-hint">Start the demo and type <b>run</b>, or launch Codex / Claude in a project.</div></section>
+  <div id="vertical-divider" class="divider vertical" role="separator" aria-label="Resize agent panel"></div>
+  <section id="review-panel">
+    <section id="activity-panel" class="panel"><div class="panel-heading"><span>Activity <span id="row-count" class="muted"></span></span><div><label><input id="follow" type="checkbox" checked> Follow</label><button id="refresh">Refresh</button></div></div>
+      <input id="filter" placeholder="Filter activity · path:pricing.py tool:file.modify" aria-label="Filter activity"><div id="activity"><div class="empty">Recorded actions and file changes appear here.</div></div></section>
+    <div id="horizontal-divider" class="divider horizontal" role="separator" aria-label="Resize activity panel"></div>
+    <section id="visualization-panel" class="panel"><div class="panel-heading"><span>Visualization</span><div><button id="source-tab" class="selected">Source</button><button id="graph-tab">GitDiffViz</button><button id="export">Export JSON</button><button id="session-export">Export session</button><button id="cancel">Cancel</button></div></div>
+      <div id="selection-info" class="muted">Select captured evidence to inspect it.</div>
+      <div id="source"><h2>Watch the agent. Explore its changes.</h2><p>The terminal, recorded activity and interactive GitDiffViz viewer share this window.</p><p>Choose <b>Sample recording</b> for an edit/revert/create/delete walkthrough.</p></div>
+      <iframe id="graph" title="Interactive GitDiffViz" src="gitdiffviz/index.html" sandbox="allow-scripts allow-same-origin" hidden></iframe>
+    </section>
+  </section>
+</main>
+<footer><span id="status">Ready · captured historical evidence</span><span id="recording-path"></span></footer>
+<dialog id="launch-dialog"><form method="dialog"><h2>Open a project or recording</h2>
+  <label>Workspace<div class="path-input"><input id="workspace"><button type="button" id="browse-workspace">Browse</button></div></label>
+  <label>Agent<select id="provider"><option value="codex">Codex</option><option value="claude">Claude</option><option value="shell">Shell</option></select></label>
+  <label>Model<input id="model" placeholder="Provider default — or enter a model ID / alias" autocomplete="off"><small>Leave blank to use your agent's configured model. You can also use its native /model picker in the terminal.</small></label>
+  <label class="inline"><input id="hooks" type="checkbox" checked> Observe provider tool hooks (native trust still applies)</label>
+  <label>Recording directory (blank creates a new private recording)<div class="path-input"><input id="recording"><button type="button" id="browse-recording">Browse</button></div></label>
+  <label>GitDiffViz adapter configuration<input id="config"></label>
+  <label>Saved session<select id="session"><option value="">Latest session</option></select></label>
+  <div class="dialog-actions"><button value="cancel">Cancel</button><button type="button" id="open-recording">Review saved</button><button type="button" id="launch" class="primary">Launch agent</button></div>
+</form></dialog>
+<script type="module" src="app.js"></script>
+</body></html>

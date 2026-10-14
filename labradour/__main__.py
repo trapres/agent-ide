@@ -55,6 +55,7 @@ def layout_from_args(args):
 def main():
     parser = argparse.ArgumentParser(description="Labradour native agent launcher and recorder")
     commands = parser.add_subparsers(dest="mode", required=True)
+    commands.add_parser('desktop', help='Launch the Cargo/Tauri desktop UI (development checkout)')
     run = commands.add_parser("run", help="Launch a native CLI or deterministic demo in a PTY")
     run.add_argument("--demo", action="store_true")
     run.add_argument("--workspace", type=Path, default=Path.cwd())
@@ -137,6 +138,11 @@ def main():
     commands.add_parser("doctor", help="List prerequisites without reading credentials")
     commands.add_parser("adapter-coverage", help="Show native provider categories still requiring verification")
     args = parser.parse_args()
+    if args.mode == 'desktop':
+        root = Path(__file__).resolve().parents[1]
+        if not (root / 'desktop/node_modules').exists():
+            parser.exit(2, 'Install desktop dependencies first: cd desktop && npm install\n')
+        raise SystemExit(subprocess.call(['npm', 'run', 'dev'], cwd=str(root / 'desktop')))
     if args.mode == 'open-export':
         from .exports import ArtifactCache, TIMEOUT, ExportError
         from .companions import open_graphical, OpenFailure
